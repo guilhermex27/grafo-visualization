@@ -1,8 +1,4 @@
-# Dev environment
-pip
-autopep8
-
-# App
-flask
+Flask
 networkx
-matplotlib
+dash
+dash-cytoscape
