@@ -14,7 +14,7 @@ GRAPH_FILE_PATH = 'data/graph.txt'
 # --- FUNÇÕES AUXILIARES DE DADOS DO GRAFO --- #
 
 def load_graph_data():
-    """Lê o arquivo de grafo e retorna os elementos para o Cytoscape."""
+    """Lê o arquivo de grafo, respeitando o número de vértices no cabeçalho."""
     if not os.path.exists(GRAPH_FILE_PATH) or os.path.getsize(GRAPH_FILE_PATH) == 0:
         return []
 
@@ -24,50 +24,76 @@ def load_graph_data():
     if not lines or len(lines) < 1:
         return []
 
+    header_parts = lines[0].split()
+    if len(header_parts) != 2:
+        return [] # Cabeçalho inválido
+
+    try:
+        num_vertices = int(header_parts[0])
+    except ValueError:
+        return [] # Número de vértices inválido
+
     G = nx.Graph()
+    # 1. Adiciona todos os nós primeiro, com base no cabeçalho
+    for i in range(num_vertices):
+        G.add_node(str(i))
+
+    # 2. Adiciona as arestas
     for line in lines[1:]:
         parts = line.split()
-        if len(parts) == 2:
-            G.add_edge(parts[0], parts[1])
-        elif len(parts) == 1:
-            G.add_node(parts[0])
+        if len(parts) == 3:
+            G.add_edge(parts[0], parts[1], weight=parts[2])
 
     elements = []
     for node in G.nodes():
-        elements.append({'data': {'id': node, 'label': f'Vértice {node}'}})
+        elements.append({'data': {'id': node}})
         
-    for edge in G.edges():
-        elements.append({'data': {'source': edge[0], 'target': edge[1]}})
+    for edge in G.edges(data=True):
+        elements.append({
+            'data': {
+                'source': edge[0],
+                'target': edge[1],
+                'label': str(edge[2].get('weight', 1))
+            }
+        })
             
     return elements
 
 def save_graph_data(elements):
-    """Salva os elementos do Cytoscape no arquivo de texto do grafo."""
+    """Salva os elementos no formato de texto, com nós isolados implícitos no contador."""
     if not elements:
         with open(GRAPH_FILE_PATH, 'w') as f:
             f.write("0 0\n")
         return
 
-    nodes = {ele['data']['id'] for ele in elements if 'source' not in ele['data']}
-    edges = [(ele['data']['source'], ele['data']['target']) for ele in elements if 'source' in ele['data']]
+    all_nodes = set()
+    edges_with_weights = []
 
-    for source, target in edges:
-        nodes.add(source)
-        nodes.add(target)
-
-    nodes_in_edges = set()
-    for source, target in edges:
-        nodes_in_edges.add(source)
-        nodes_in_edges.add(target)
+    # Coleta todas as arestas e os nós, incluindo os isolados
+    for ele in elements:
+        if 'source' in ele['data']:
+            source = ele['data']['source']
+            target = ele['data']['target']
+            weight = ele['data'].get('label', '1')
+            edges_with_weights.append((source, target, weight))
+            all_nodes.add(source)
+            all_nodes.add(target)
+        else:
+             all_nodes.add(ele['data']['id'])
     
-    isolated_nodes = nodes - nodes_in_edges
+    # Garante que os nós sejam contados de 0 até o máximo id, sem pulos
+    if not all_nodes:
+        max_id = -1
+    else:
+        max_id = max(int(n) for n in all_nodes)
+    
+    num_vertices = max_id + 1
 
     with open(GRAPH_FILE_PATH, 'w') as f:
-        f.write(f"{len(nodes)} {len(edges)}\n")
-        for source, target in edges:
-            f.write(f"{source} {target}\n")
-        for node in isolated_nodes:
-            f.write(f"{node}\n")
+        f.write(f"{num_vertices} {len(edges_with_weights)}\n")
+        # Escreve apenas as arestas, como definido no padrão
+        for source, target, weight in edges_with_weights:
+            f.write(f"{source} {target} {weight}\n")
 
 # --- APLICAÇÃO DASH --- #
 
@@ -75,6 +101,7 @@ app = dash.Dash(__name__, suppress_callback_exceptions=True)
 server = app.server
 
 def serve_layout():
+    """Função que gera o layout dinamicamente a cada carregamento da página."""
     initial_elements = load_graph_data()
     return html.Div([
         dcc.Store(id='graph-elements-store', data=initial_elements),
@@ -87,6 +114,26 @@ def serve_layout():
         cyto.Cytoscape(
             id='cytoscape-graph',
             elements=initial_elements,
+            stylesheet=[ # Define o estilo visual dos elementos do grafo
+                {
+                    'selector': 'node', # Estilo para os Vértices
+                    'style': {
+                        'label': 'data(id)', # Usa o ID do vértice como seu rótulo
+                        'text-valign': 'center',
+                        'color': 'white',
+                        'text-outline-color': '#888',
+                        'text-outline-width': '2px' 
+                    }
+                },
+                {
+                    'selector': 'edge', # Estilo para as Arestas
+                    'style': {
+                        'label': 'data(label)', # Usa o campo 'label' (peso) como rótulo
+                        'text-rotation': 'autorotate',
+                        'text-margin-y': '-15px' # Desloca o rótulo para CIMA da aresta
+                    }
+                }
+            ],
             style={'width': '100%', 'height': '450px'},
             layout={'name': 'circle'},
             wheelSensitivity=0.1
@@ -99,13 +146,13 @@ def serve_layout():
         html.Div([
             html.Div([
                 html.H3("Vértice"),
-                dcc.Input(id='vertex-id-input', placeholder='ID do Vértice', type='text'),
-                html.Button('Adicionar Vértice', id='add-vertex-button', n_clicks=0, style={'marginLeft':'10px'})
+                html.Button('Adicionar Vértice', id='add-vertex-button', n_clicks=0)
             ], className='control-panel'),
             html.Div([
                 html.H3("Aresta"),
                 dcc.Input(id='edge-source-input', placeholder='Origem', type='text', style={'width': '80px'}),
                 dcc.Input(id='edge-target-input', placeholder='Destino', type='text', style={'width': '80px', 'marginLeft':'5px'}),
+                dcc.Input(id='edge-weight-input', placeholder='Peso', type='number', value=1, style={'width':'70px', 'marginLeft':'5px'}),
                 html.Button('Adicionar Aresta', id='add-edge-button', n_clicks=0, style={'marginLeft':'10px'})
             ], className='control-panel'),
             html.Div([
@@ -125,6 +172,7 @@ def serve_layout():
         ], style={'display': 'flex', 'justifyContent': 'center', 'alignItems': 'center', 'padding': '10px'})
     ])
 
+# Atribui a FUNÇÃO ao layout, para que seja chamada a cada recarregamento
 app.layout = serve_layout
 
 # --- CALLBACKS --- #
@@ -145,16 +193,16 @@ def update_view_from_store(data):
     Input('add-edge-button', 'n_clicks'),
     Input('delete-selected-button', 'n_clicks'),
     Input('upload-data', 'contents'),
-    State('vertex-id-input', 'value'),
     State('edge-source-input', 'value'),
     State('edge-target-input', 'value'),
+    State('edge-weight-input', 'value'),
     State('cytoscape-graph', 'selectedNodeData'),
     State('cytoscape-graph', 'selectedEdgeData'),
     State('graph-elements-store', 'data'),
     State('upload-data', 'filename'),
     prevent_initial_call=True
 )
-def update_store_data(add_v, add_e, del_s, upload_contents, vertex_id, edge_source, edge_target, selected_nodes, selected_edges, elements, filename):
+def update_store_data(add_v_clicks, add_e_clicks, del_clicks, upload_contents, edge_source, edge_target, edge_weight, selected_nodes, selected_edges, elements, filename):
     ctx = dash.callback_context
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
     
@@ -162,20 +210,21 @@ def update_store_data(add_v, add_e, del_s, upload_contents, vertex_id, edge_sour
     msg = ""
 
     try:
-        if vertex_id: vertex_id = vertex_id.strip()
         if edge_source: edge_source = edge_source.strip()
         if edge_target: edge_target = edge_target.strip()
 
-        if trigger_id == 'add-vertex-button' and vertex_id:
-            node_ids = {el['data']['id'] for el in elements if 'source' not in el['data']}
-            if vertex_id in node_ids:
-                raise ValueError(f"Vértice '{vertex_id}' já existe.")
-            elements.append({'data': {'id': vertex_id, 'label': f'Vértice {vertex_id}'}})
+        if trigger_id == 'add-vertex-button':
+            node_ids = {int(el['data']['id']) for el in elements if el['data'].get('id')}
+            new_id = str(max(node_ids) + 1 if node_ids else 0)
+            elements.append({'data': {'id': new_id}})
             save_graph_data(elements)
-            msg = html.Span(f"Vértice '{vertex_id}' adicionado.", style={'color': 'green'})
+            msg = html.Span(f"Vértice '{new_id}' adicionado.", style={'color': 'green'})
         
         elif trigger_id == 'add-edge-button' and edge_source and edge_target:
-            node_ids = {el['data']['id'] for el in elements if 'source' not in el['data']}
+            if edge_weight is None:
+                raise ValueError("O peso da aresta não pode ser vazio.")
+
+            node_ids = {el['data']['id'] for el in elements if el['data'].get('id')}
             if not edge_source in node_ids or not edge_target in node_ids:
                  raise ValueError("Ambos os vértices (origem e destino) devem existir.")
             
@@ -184,34 +233,53 @@ def update_store_data(add_v, add_e, del_s, upload_contents, vertex_id, edge_sour
             if new_edge in existing_edges:
                 raise ValueError(f"Aresta entre '{edge_source}' e '{edge_target}' já existe.")
 
-            elements.append({'data': {'source': edge_source, 'target': edge_target}})
+            elements.append({'data': {'source': edge_source, 'target': edge_target, 'label': str(edge_weight)}})
             save_graph_data(elements)
-            msg = html.Span(f"Aresta de '{edge_source}' para '{edge_target}' adicionada.", style={'color': 'green'})
+            msg = html.Span(f"Aresta de '{edge_source}' para '{edge_target}' (Peso: {edge_weight}) adicionada.", style={'color': 'green'})
 
         elif trigger_id == 'delete-selected-button':
-            original_len = len(elements)
-            ids_to_remove = {n['id'] for n in selected_nodes} if selected_nodes else set()
-            edges_to_remove = {tuple(sorted((e['source'], e['target']))) for e in selected_edges} if selected_edges else set()
+            if not selected_nodes and not selected_edges:
+                raise PreventUpdate
 
-            new_elements = []
+            ids_to_remove = {n['id'] for n in selected_nodes} if selected_nodes else set()
+            edges_to_remove = {tuple(sorted((e['data']['source'], e['data']['target']))) for e in selected_edges} if selected_edges else set()
+
+            # Primeira passagem: remove os elementos selecionados
+            temp_elements = []
             for elem in elements:
                 if 'source' not in elem['data']:
                     if elem['data']['id'] not in ids_to_remove:
-                        new_elements.append(elem)
+                        temp_elements.append(elem)
                 else:
                     source_is_deleted = elem['data']['source'] in ids_to_remove
                     target_is_deleted = elem['data']['target'] in ids_to_remove
                     edge_is_selected = tuple(sorted((elem['data']['source'], elem['data']['target']))) in edges_to_remove
-                    
                     if not source_is_deleted and not target_is_deleted and not edge_is_selected:
-                        new_elements.append(elem)
+                        temp_elements.append(elem)
+
+            if len(temp_elements) == len(elements):
+                raise PreventUpdate # Nada foi efetivamente removido
+
+            # Segunda passagem: renumerar os nós para garantir a continuidade
+            remaining_node_ids = sorted([int(el['data']['id']) for el in temp_elements if 'source' not in el['data']])
+            id_map = {str(old_id): str(new_id) for new_id, old_id in enumerate(remaining_node_ids)}
             
-            if len(new_elements) < original_len:
-                elements = new_elements
-                save_graph_data(elements)
-                msg = html.Span("Elemento(s) selecionado(s) removido(s).", style={'color': 'green'})
-            else:
-                raise PreventUpdate
+            final_elements = []
+            for elem in temp_elements:
+                if 'source' not in elem['data']:
+                    old_id = elem['data']['id']
+                    elem['data']['id'] = id_map[old_id]
+                    final_elements.append(elem)
+                else:
+                    old_source = elem['data']['source']
+                    old_target = elem['data']['target']
+                    elem['data']['source'] = id_map[old_source]
+                    elem['data']['target'] = id_map[old_target]
+                    final_elements.append(elem)
+
+            elements = final_elements
+            save_graph_data(elements)
+            msg = html.Span("Elemento(s) removido(s) e IDs renumerados.", style={'color': 'green'})
 
         elif trigger_id == 'upload-data' and upload_contents:
             content_type, content_string = upload_contents.split(',')
