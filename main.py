@@ -41,7 +41,7 @@ BASE_STYLESHEET = [
         'selector': 'edge',
         'style': {
             'label': 'data(label)', 'color': 'black',
-            'text-margin-y': '-13px', 
+            'text-margin-y': '-15px', 
         }
     },
     {
@@ -125,31 +125,76 @@ def serve_layout():
 
     return html.Div([
         dcc.Store(id='source-node-store', data=None),
-        dcc.Store(id='connect-mode-store', data=False), # False: Modo Seleção, True: Modo Conexão
-        html.Div([ html.H1("Editor de Grafo Interativo"), html.Button('Redefinir Visualização', id='home-button')]),
-        cyto.Cytoscape(
-            id='cytoscape-graph',
-            elements=initial_elements,
-            stylesheet=BASE_STYLESHEET,
-            style={'width': '100%', 'height': '450px'},
-            layout={'name': 'circle', 'animate': True, 'animationDuration': 500},
-            wheelSensitivity=0.1
-        ),
-        html.Div(id='empty-graph-message', style={'textAlign': 'center', 'padding': '20px'}),
-        html.Hr(),
-        html.Div([
-            html.Div([html.H3("Vértice"), html.Button('Adicionar Vértice', id='add-vertex-button')]),
-            html.Div([
-                html.H3("Interação"),
-                html.Button('Modo: Seleção', id='connect-mode-button', style={'width': '150px'}),
-                html.P(id='connect-mode-help-text', children="(Selecione elementos para deletar)", style={'fontSize': '12px', 'color': 'grey'})
-            ], style={'textAlign': 'center'}),
-            html.Div([html.H3("Deletar"), html.Button('Deletar Selecionado', id='delete-selected-button', disabled=True)])
-        ], style={'display': 'flex', 'justifyContent': 'space-around', 'alignItems': 'center'}),
-        html.Div(id='action-output-message', style={'marginTop': '15px', 'textAlign': 'center'}),
-        html.Hr(),
-        html.H2("Gerenciar Arquivo"),
-        html.Div([ dcc.Upload(id='upload-data', children=html.Button('Carregar Arquivo')), html.A(html.Button("Salvar e Baixar"), id="download-link", href="/download/graph.txt") ], style={'textAlign': 'center', 'padding': '10px'})
+        dcc.Store(id='connect-mode-store', data=False),
+
+        html.H1("Editor de Grafo Interativo", style={'paddingLeft': '20px'}),
+
+        # Container principal que divide a tela em Esquerda (Grafo) e Direita (Menu)
+        html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '85vh', 'width': '100%'}, children=[
+
+            # --- LADO ESQUERDO: O GRAFO (flex: 1 faz ele ocupar todo o espaço) ---
+            html.Div(style={'flex': '1', 'position': 'relative', 'border': '1px solid #ccc', 'borderRadius': '8px', 'marginLeft': '20px', 'backgroundColor': '#fff'}, children=[
+                cyto.Cytoscape(
+                    id='cytoscape-graph',
+                    elements=initial_elements,
+                    stylesheet=BASE_STYLESHEET,
+                    style={'width': '100%', 'height': '100%'}, # Agora ocupa 100% do container
+                    layout={'name': 'circle', 'animate': True, 'animationDuration': 500},
+                    wheelSensitivity=0.1
+                ),
+                html.Div(id='empty-graph-message', style={'position': 'absolute', 'top': '10px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none'}),
+                html.Div(id='action-output-message', style={'position': 'absolute', 'bottom': '10px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold'})
+            ]),
+
+            # --- LADO DIREITO: SETA + PAINEL VERTICAL ---
+            html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '100%'}, children=[
+
+                # Apenas a Seta para esconder/mostrar
+                html.Div(style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center', 'width': '30px'}, children=[
+                    html.Button('▶', id='toggle-painel-btn', n_clicks=0, style={
+                        'background': 'transparent', 'color': 'black', 'border': 'none',
+                        'fontSize': '22px', 'cursor': 'pointer', 'padding': '0', 'height': '100%'
+                    })
+                ]),
+
+                # O Painel de cartões (agora na vertical)
+                html.Div(id='conteudo-paineis', className='container-paineis', style={
+                    'display': 'flex', 'flexDirection': 'column', 'width': '250px',
+                    'padding': '15px', 'gap': '15px', 'overflowY': 'auto',
+                    'backgroundColor': '#e0e0e0', 'borderRadius': '10px', 'marginRight': '20px'
+                }, children=[
+
+                    # Botão Redefinir movido para o painel
+                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
+                        html.H3("Visualização", style={'marginTop': '0', 'fontSize': '16px'}),
+                        html.Button('Redefinir Posições', id='home-button', style={'width': '100%'})
+                    ]),
+
+                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
+                        html.H3("Vértice", style={'marginTop': '0', 'fontSize': '16px'}),
+                        html.Button('Adicionar Vértice', id='add-vertex-button', style={'width': '100%'})
+                    ]),
+
+                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
+                        html.H3("Interação", style={'marginTop': '0', 'fontSize': '16px'}),
+                        html.Button('Modo: Seleção', id='connect-mode-button', style={'width': '100%'}),
+                        html.P(id='connect-mode-help-text', children="(Selecione elementos para deletar)", style={'fontSize': '12px', 'color': 'grey', 'marginBottom': '0'})
+                    ]),
+
+                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
+                        html.H3("Deletar", style={'marginTop': '0', 'fontSize': '16px'}),
+                        html.Button('Deletar Selecionado', id='delete-selected-button', disabled=True, style={'width': '100%'})
+                    ]),
+
+                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
+                        html.H3("Arquivo", style={'marginTop': '0', 'fontSize': '16px'}),
+                        dcc.Upload(id='upload-data', children=html.Button('Carregar Arquivo', style={'width': '100%'})),
+                        html.Br(),
+                        html.A(html.Button("Salvar e Baixar", style={'width': '100%'}), id="download-link", href="/download/graph.txt")
+                    ])
+                ])
+            ])
+        ])
     ])
 
 app.layout = serve_layout
@@ -303,6 +348,27 @@ def reset_layout(n_clicks, cyto_elements):
     _update_node_positions(cyto_elements)
     save_graph_data()
     return {'name': 'circle', 'padding': 10, 'animate': True, 'animationDuration': 500}
+
+@app.callback(
+    Output('conteudo-paineis', 'style'),
+    Output('toggle-painel-btn', 'children'),
+    Input('toggle-painel-btn', 'n_clicks'),
+    prevent_initial_call=True
+)
+def alternar_painel_inteiro(n_clicks):
+    # Precisamos manter o estilo base para não quebrar o layout quando reaparecer
+    estilo_base = {
+        'flexDirection': 'column', 'width': '250px',
+        'padding': '15px', 'gap': '15px', 'overflowY': 'auto',
+        'backgroundColor': '#e0e0e0', 'borderRadius': '10px', 'marginRight': '20px'
+    }
+    
+    if n_clicks % 2 == 1:
+        estilo_base['display'] = 'none' # Esconde o painel
+        return estilo_base, '◀'  # Seta apontando pra esquerda (indicando que puxa de volta)
+    else:
+        estilo_base['display'] = 'flex' # Mostra o painel
+        return estilo_base, '▶'  # Seta apontando pra direita (indicando que empurra pra fechar)
 
 @server.route('/download/graph.txt')
 def download_graph_file():
