@@ -3,7 +3,7 @@ body {
     background-color: #f4f4f9;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
-    padding: 20px;
+    padding: 5px;
 }
 
 /* Uma classe para as divs que guardam os botões */
@@ -19,7 +19,7 @@ body {
 /* Uma classe para organizar os cartões lado a lado */
 .container-paineis {
     display: flex;
-    justify-content: space-around;
+    justify-content: space-between;
     align-items: flex-start;
     background-color: #e0e0e0;
     padding: 15px;

@@ -40,14 +40,14 @@ BASE_STYLESHEET = [
     {
         'selector': 'edge',
         'style': {
-            'label': 'data(label)', 'color': 'black',
+            'label': 'data(label)', 'color': 'black', 'font-weight': '800',
             'text-margin-y': '-15px', 
         }
     },
     {
         'selector': ':selected',
         'style': {
-            'border-width': 3, 'border-color': '#42a5f5' # Destaque azul para seleção
+            'border-width': 3, 'border-color': '#42a5f5'
         }
     }
 ]
@@ -127,44 +127,39 @@ def serve_layout():
         dcc.Store(id='source-node-store', data=None),
         dcc.Store(id='connect-mode-store', data=False),
 
-        html.H1("Editor de Grafo Interativo", style={'paddingLeft': '20px'}),
+        html.H1("Editor de Grafo Interativo", style={'paddingLeft': '10px'}),
 
-        # Container principal que divide a tela em Esquerda (Grafo) e Direita (Menu)
-        html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '85vh', 'width': '100%'}, children=[
+        html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '88vh', 'width': '100%'}, children=[
 
-            # --- LADO ESQUERDO: O GRAFO (flex: 1 faz ele ocupar todo o espaço) ---
-            html.Div(style={'flex': '1', 'position': 'relative', 'border': '1px solid #ccc', 'borderRadius': '8px', 'marginLeft': '20px', 'backgroundColor': '#fff'}, children=[
+            # LADO ESQUERDO: O GRAFO (flex: 1 faz ele ocupar todo o espaço)
+            html.Div(style={'flex': '1','position': 'relative', 'border': '1px solid #ccc', 'borderRadius': '8px', 'marginLeft': '2px', 'backgroundColor': '#fff'}, children=[
                 cyto.Cytoscape(
                     id='cytoscape-graph',
                     elements=initial_elements,
                     stylesheet=BASE_STYLESHEET,
-                    style={'width': '100%', 'height': '100%'}, # Agora ocupa 100% do container
+                    style={'width': '100%', 'height': '100%'},
                     layout={'name': 'circle', 'animate': True, 'animationDuration': 500},
                     wheelSensitivity=0.1
                 ),
                 html.Div(id='empty-graph-message', style={'position': 'absolute', 'top': '10px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none'}),
-                html.Div(id='action-output-message', style={'position': 'absolute', 'bottom': '10px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold'})
+                html.Div(id='action-output-message', style={'position': 'absolute', 'bottom': '-22px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold'})
             ]),
 
-            # --- LADO DIREITO: SETA + PAINEL VERTICAL ---
-            html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '100%'}, children=[
+            # LADO DIREITO: SETA + PAINEL VERTICAL
+            html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '80vh', 'position': 'absolute', 'right': '0', 'top': '12vh', 'padding': '7px'}, children=[
 
-                # Apenas a Seta para esconder/mostrar
-                html.Div(style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center', 'width': '30px'}, children=[
-                    html.Button('▶', id='toggle-painel-btn', n_clicks=0, style={
-                        'background': 'transparent', 'color': 'black', 'border': 'none',
-                        'fontSize': '22px', 'cursor': 'pointer', 'padding': '0', 'height': '100%'
+                html.Div(style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center'}, children=[
+                    html.Button('◀', id='toggle-painel-btn', n_clicks=0, style={
+                        'background': '#e0e0e0', 'color': 'black', 'border': 'none',
+                        'fontSize': '22px', 'cursor': 'pointer', 'padding': '0', 'height': '10%','borderRadius': '10px','width': '30px'
                     })
                 ]),
 
-                # O Painel de cartões (agora na vertical)
                 html.Div(id='conteudo-paineis', className='container-paineis', style={
-                    'display': 'flex', 'flexDirection': 'column', 'width': '250px',
-                    'padding': '15px', 'gap': '15px', 'overflowY': 'auto',
-                    'backgroundColor': '#e0e0e0', 'borderRadius': '10px', 'marginRight': '20px'
+                    'display': 'none', 'flexDirection': 'column', 'width': '250px',
+                    'backgroundColor': '#e0e0e0', 'borderRadius': '10px', 'marginRight': '0px'
                 }, children=[
 
-                    # Botão Redefinir movido para o painel
                     html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
                         html.H3("Visualização", style={'marginTop': '0', 'fontSize': '16px'}),
                         html.Button('Redefinir Posições', id='home-button', style={'width': '100%'})
@@ -246,14 +241,14 @@ def main_callback(
         new_id = 0
         while new_id in node_ids: new_id += 1
         G.add_node(str(new_id))
-        msg = html.Span(f"Vértice '{new_id}' adicionado.", style={'color': 'green'})
+        msg = html.Span(f"Vértice {new_id} adicionado.", style={'color': 'green'})
 
     elif prop_id == 'cytoscape-graph.tapNodeData':
         if connect_mode_on:
             target_node_id = tapped_node_data['id']
             if not source_node_id:
                 new_source_node = target_node_id
-                msg = html.Span(f"Nó de origem '{target_node_id}' selecionado.", style={'color': '#f5a442'})
+                msg = html.Span(f"Nó de origem {target_node_id} selecionado.", style={'color': '#f5a442'})
             elif source_node_id == target_node_id:
                 new_source_node = None
                 msg = html.Span("Modo de conexão cancelado.", style={'color': 'grey'})
@@ -262,11 +257,11 @@ def main_callback(
                     msg = html.Span("Aresta já existe.", style={'color': 'orange'})
                 else:
                     G.add_edge(source_node_id, target_node_id, label='1')
-                    msg = html.Span(f"Aresta de '{source_node_id}' a '{target_node_id}' criada.", style={'color': 'green'})
+                    msg = html.Span(f"Aresta de {source_node_id} a {target_node_id} criada.", style={'color': 'green'})
                 new_source_node = None
         else:
             node_id = tapped_node_data['id']
-            msg = html.Span(f"Nó '{node_id}' selecionado. Use 'Deletar' ou mude de modo.")
+            msg = html.Span(f"Nó {node_id} selecionado.")
 
     elif prop_id == 'delete-selected-button.n_clicks':
         if not connect_mode_on and (sel_nodes or sel_edges):
@@ -306,7 +301,7 @@ def toggle_connect_mode(n_clicks, is_on):
     new_mode_is_on = not is_on
     button_text = "Modo: Conexão" if new_mode_is_on else "Modo: Seleção"
     help_text = "(Clique em um nó, depois em outro)" if new_mode_is_on else "(Selecione elementos para deletar)"
-    return new_mode_is_on, button_text, help_text, None # Reseta o nó de origem na troca de modo
+    return new_mode_is_on, button_text, help_text, None 
 
 @app.callback(
     Output('cytoscape-graph', 'stylesheet'),
@@ -356,19 +351,17 @@ def reset_layout(n_clicks, cyto_elements):
     prevent_initial_call=True
 )
 def alternar_painel_inteiro(n_clicks):
-    # Precisamos manter o estilo base para não quebrar o layout quando reaparecer
     estilo_base = {
         'flexDirection': 'column', 'width': '250px',
-        'padding': '15px', 'gap': '15px', 'overflowY': 'auto',
-        'backgroundColor': '#e0e0e0', 'borderRadius': '10px', 'marginRight': '20px'
+        'backgroundColor': '#e0e0e0', 'borderRadius': '10px', 'marginRight': '0px'
     }
     
-    if n_clicks % 2 == 1:
-        estilo_base['display'] = 'none' # Esconde o painel
-        return estilo_base, '◀'  # Seta apontando pra esquerda (indicando que puxa de volta)
+    if n_clicks % 2 == 0:
+        estilo_base['display'] = 'none' 
+        return estilo_base, '◀'  
     else:
-        estilo_base['display'] = 'flex' # Mostra o painel
-        return estilo_base, '▶'  # Seta apontando pra direita (indicando que empurra pra fechar)
+        estilo_base['display'] = 'flex' 
+        return estilo_base, '▶' 
 
 @server.route('/download/graph.txt')
 def download_graph_file():
