@@ -46,3 +46,31 @@ button:disabled {
     background-color: #cccccc;
     cursor: not-allowed;
 }
+
+.image-container {
+    position: relative;
+    text-align: center;
+    vertical-align: middle;
+    width: 15vh;
+}
+
+.image-container button {
+    background-image: url(home.png);
+    background-size: contain;
+    background-position: right;
+    background-repeat: no-repeat;
+    position: absolute;
+    z-index: 1;
+    top: 35%;
+    left: 50%;
+    width: 55px;
+    height: 55px;
+    padding: 0;
+    margin: -15px 0 0 -30px;
+    border: 0 none;
+    background-color: #f4f4f9;
+}
+
+.image-container button:hover{
+    background-color: #c8cac8;
+}

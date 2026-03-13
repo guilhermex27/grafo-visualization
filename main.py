@@ -126,10 +126,39 @@ def serve_layout():
     return html.Div([
         dcc.Store(id='source-node-store', data=None),
         dcc.Store(id='connect-mode-store', data=False),
+        dcc.Store(id='aresta-edit-store', data=None),
+        dcc.Store(id='edge-edit-store', data=None),
 
-        html.H1("Editor de Grafo Interativo", style={'paddingLeft': '10px'}),
+        html.Div(id='modal-editar-peso', style={
+            'display': 'none', 'position': 'fixed', 'top': 0, 'left': 0, 'width': '100%', 'height': '100%', 
+            'backgroundColor': 'rgba(0,0,0,0.5)', 'zIndex': 9999, 'justifyContent': 'center', 'alignItems': 'center'
+        }, children=[
+            html.Div(style={
+                'backgroundColor': 'white', 'padding': '25px', 'borderRadius': '10px', 
+                'boxShadow': '0 4px 15px rgba(0,0,0,0.3)', 'textAlign': 'center', 'width': '300px'
+            }, children=[
+                html.H3("Editar Peso da Aresta", style={'marginTop': '0'}),
+                dcc.Input(id='modal-input-peso', type='text', style={'width': '100%', 'marginBottom': '20px', 'padding': '10px', 'boxSizing': 'border-box', 'fontSize': '16px'}),
+                html.Div(style={'display': 'flex', 'justifyContent': 'space-between'}, children=[
+                    html.Button('Cancelar', id='btn-cancelar-peso', style={'backgroundColor': '#f44336', 'color': 'white', 'flex': '1', 'marginRight': '5px'}),
+                    html.Button('Salvar', id='btn-salvar-peso', style={'backgroundColor': '#4CAF50', 'color': 'white', 'flex': '1', 'marginLeft': '5px'})
+                ])
+            ])
+        ]),
+        html.Div([
+            html.H1("Editor de Grafo Interativo", style={'paddingLeft': '10px','paddingRight': '20px'}),
+            html.Div([
+                html.Button(id='home-button'),
+            ], className='image-container'),
+            html.Div([
+                html.A(html.Button(style={'backgroundImage': 'url(assets/download.png)','backgroundPositionX': '1px','backgroundPositionY': '7px'}), id="download-link", href="/download/graph.txt"),
+            ], className='image-container'),
+            html.Div(children=[
+                dcc.Upload(id='upload-data', children=html.Button(style={'backgroundImage': 'url(assets/upload.png)','backgroundPositionX': '-1px','marginTop':'13px'})),
+            ], className='image-container')
+        ],style={'display':'flex','justifyContent':'start'}),
 
-        html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '88vh', 'width': '100%'}, children=[
+        html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '90vh', 'width': '100%'}, children=[
 
             # LADO ESQUERDO: O GRAFO (flex: 1 faz ele ocupar todo o espaço)
             html.Div(style={'flex': '1','position': 'relative', 'border': '1px solid #ccc', 'borderRadius': '8px', 'marginLeft': '2px', 'backgroundColor': '#fff'}, children=[
@@ -142,7 +171,8 @@ def serve_layout():
                     wheelSensitivity=0.1
                 ),
                 html.Div(id='empty-graph-message', style={'position': 'absolute', 'top': '10px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none'}),
-                html.Div(id='action-output-message', style={'position': 'absolute', 'bottom': '-22px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold'})
+                html.Div(id='action-output-message', style={'position': 'absolute', 'bottom': '0px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold'}),
+                html.Div(id='keyboard-listener-dummy', style={'display': 'none'})
             ]),
 
             # LADO DIREITO: SETA + PAINEL VERTICAL
@@ -161,11 +191,6 @@ def serve_layout():
                 }, children=[
 
                     html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
-                        html.H3("Visualização", style={'marginTop': '0', 'fontSize': '16px'}),
-                        html.Button('Redefinir Posições', id='home-button', style={'width': '100%'})
-                    ]),
-
-                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
                         html.H3("Vértice", style={'marginTop': '0', 'fontSize': '16px'}),
                         html.Button('Adicionar Vértice', id='add-vertex-button', style={'width': '100%'})
                     ]),
@@ -181,12 +206,12 @@ def serve_layout():
                         html.Button('Deletar Selecionado', id='delete-selected-button', disabled=True, style={'width': '100%'})
                     ]),
 
-                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
-                        html.H3("Arquivo", style={'marginTop': '0', 'fontSize': '16px'}),
-                        dcc.Upload(id='upload-data', children=html.Button('Carregar Arquivo', style={'width': '100%'})),
-                        html.Br(),
-                        html.A(html.Button("Salvar e Baixar", style={'width': '100%'}), id="download-link", href="/download/graph.txt")
-                    ])
+                    # html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
+                    #     html.H3("Arquivo", style={'marginTop': '0', 'fontSize': '16px'}),
+                    #     dcc.Upload(id='upload-data', children=html.Button('Carregar Arquivo', style={'width': '100%'})),
+                    #     html.Br(),
+                    #     html.A(html.Button("Salvar e Baixar", style={'width': '100%'}), id="download-link", href="/download/graph.txt")
+                    # ])
                 ])
             ])
         ])
@@ -216,17 +241,22 @@ def _update_node_positions(cyto_elements):
     Input('delete-selected-button', 'n_clicks'),
     Input('upload-data', 'contents'),
     Input('cytoscape-graph', 'tapNodeData'),
+    Input('cytoscape-graph', 'tapEdgeData'),
+    Input('btn-salvar-peso', 'n_clicks'),
     State('cytoscape-graph', 'selectedNodeData'),
     State('cytoscape-graph', 'selectedEdgeData'),
     State('upload-data', 'filename'),
     State('cytoscape-graph', 'elements'),
     State('source-node-store', 'data'),
     State('connect-mode-store', 'data'),
+    State('aresta-edit-store', 'data'),
+    State('modal-input-peso', 'value'),
     prevent_initial_call=True
 )
 def main_callback(
-    add_v, del_s, upload_contents, tapped_node_data,
-    sel_nodes, sel_edges, filename, cyto_elements, source_node_id, connect_mode_on
+    add_v, del_s, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso,
+    sel_nodes, sel_edges, filename, cyto_elements, source_node_id, connect_mode_on,
+    aresta_edit_store_data, modal_input_value
 ):
     global G
     ctx = dash.callback_context
@@ -234,34 +264,48 @@ def main_callback(
     prop_id = ctx.triggered[0]['prop_id']
 
     _update_node_positions(cyto_elements)
-    msg, layout_output, new_source_node = "", dash.no_update, source_node_id
+    
+    msg = dash.no_update
+    layout_output = dash.no_update
+    new_source_node = source_node_id
+    graph_changed = False
 
     if prop_id == 'add-vertex-button.n_clicks':
         node_ids = {int(n) for n in G.nodes if str(n).isdigit()}
         new_id = 0
         while new_id in node_ids: new_id += 1
         G.add_node(str(new_id))
-        msg = html.Span(f"Vértice {new_id} adicionado.", style={'color': 'green'})
+        msg = html.Span(f"Vértice '{new_id}' adicionado.", style={'color': 'green'})
+        graph_changed = True
 
     elif prop_id == 'cytoscape-graph.tapNodeData':
         if connect_mode_on:
-            target_node_id = tapped_node_data['id']
-            if not source_node_id:
-                new_source_node = target_node_id
-                msg = html.Span(f"Nó de origem {target_node_id} selecionado.", style={'color': '#f5a442'})
-            elif source_node_id == target_node_id:
-                new_source_node = None
-                msg = html.Span("Modo de conexão cancelado.", style={'color': 'grey'})
-            else:
-                if G.has_edge(source_node_id, target_node_id):
-                    msg = html.Span("Aresta já existe.", style={'color': 'orange'})
+            if tapped_node_data:
+                target_node_id = tapped_node_data['id']
+                if not source_node_id:
+                    new_source_node = target_node_id
+                    msg = html.Span(f"Vértice de origem {target_node_id} selecionado.", style={'color': '#f5a442'})
+                elif source_node_id == target_node_id:
+                    new_source_node = None
+                    msg = html.Span("Modo de conexão cancelado.", style={'color': 'grey'})
                 else:
-                    G.add_edge(source_node_id, target_node_id, label='1')
-                    msg = html.Span(f"Aresta de {source_node_id} a {target_node_id} criada.", style={'color': 'green'})
-                new_source_node = None
+                    if G.has_edge(source_node_id, target_node_id):
+                        msg = html.Span("Aresta já existe.", style={'color': 'orange'})
+                    else:
+                        G.add_edge(source_node_id, target_node_id, label='1')
+                        msg = html.Span(f"Aresta de {source_node_id} a {target_node_id} criada.", style={'color': 'green'})
+                        graph_changed = True
+                    new_source_node = None
         else:
-            node_id = tapped_node_data['id']
-            msg = html.Span(f"Nó {node_id} selecionado.")
+            if tapped_node_data:
+                node_id = tapped_node_data['id']
+                msg = html.Span(f"Vértice {node_id} selecionado.")
+            
+    elif prop_id == 'cytoscape-graph.tapEdgeData':
+        if not connect_mode_on and tapped_edge_data:
+            source = tapped_edge_data['source']
+            target = tapped_edge_data['target']
+            msg = html.Span(f"Aresta {source}-{target} selecionada.")
 
     elif prop_id == 'delete-selected-button.n_clicks':
         if not connect_mode_on and (sel_nodes or sel_edges):
@@ -270,21 +314,41 @@ def main_callback(
             G.remove_nodes_from(nodes_to_remove)
             G.remove_edges_from(edges_to_remove)
             msg = html.Span("Elemento(s) removido(s).", style={'color': 'green'})
+            graph_changed = True
             if source_node_id in nodes_to_remove:
                 new_source_node = None
+    
+    elif prop_id == 'btn-salvar-peso.n_clicks':
+        if aresta_edit_store_data and modal_input_value is not None:
+            src = aresta_edit_store_data['source']
+            tgt = aresta_edit_store_data['target']
+            novo_peso = str(modal_input_value).strip()
+            
+            if G.has_edge(src, tgt):
+                G.edges[src, tgt]['label'] = novo_peso
+                msg = html.Span(f"Peso atualizado para {novo_peso}.", style={'color': 'green'})
+                graph_changed = True
 
     elif prop_id == 'upload-data.contents':
-        _, content_string = upload_contents.split(',')
-        with open(GRAPH_FILE_PATH, 'w') as f: f.write(base64.b64decode(content_string).decode('utf-8'))
-        load_graph_data()
-        msg = html.Span(f"Arquivo '{filename}' carregado com sucesso!", style={'color': 'green'})
-        layout_output = {'name': 'circle', 'animate': True, 'animationDuration': 500}
-        new_source_node = None
+        if upload_contents:
+            _, content_string = upload_contents.split(',')
+            with open(GRAPH_FILE_PATH, 'w') as f: f.write(base64.b64decode(content_string).decode('utf-8'))
+            load_graph_data()
+            msg = html.Span(f"Arquivo carregado com sucesso!", style={'color': 'green'})
+            layout_output = {'name': 'circle', 'animate': True, 'animationDuration': 500}
+            new_source_node = None
+            graph_changed = True
 
-    save_graph_data()
-    new_elements = nx_to_cytoscape(G)
-    layout_output = {'name': 'preset', 'animate': True, 'animationDuration': 100} if layout_output == dash.no_update else layout_output
-    empty_msg = "" if G.nodes else "Grafo vazio. Adicione um vértice para começar."
+    if graph_changed:
+        save_graph_data()
+        new_elements = nx_to_cytoscape(G)
+        empty_msg = "" if G.nodes else "Grafo vazio. Adicione um vértice para começar."
+        
+        if layout_output == dash.no_update:
+            layout_output = {'name': 'preset', 'animate': True, 'animationDuration': 100}
+    else:
+        new_elements = dash.no_update
+        empty_msg = dash.no_update
 
     return new_elements, msg, layout_output, new_source_node, empty_msg
 
@@ -329,7 +393,7 @@ def update_stylesheet(source_node_id, connect_mode_on):
 )
 def toggle_delete_button(nodes, edges, connect_mode_on):
     if connect_mode_on:
-        return True # Desativado no modo de conexão
+        return True
     return not (nodes or edges)
 
 @app.callback(
@@ -340,10 +404,42 @@ def toggle_delete_button(nodes, edges, connect_mode_on):
 )
 def reset_layout(n_clicks, cyto_elements):
     if not n_clicks: raise PreventUpdate
+    
     _update_node_positions(cyto_elements)
     save_graph_data()
-    return {'name': 'circle', 'padding': 10, 'animate': True, 'animationDuration': 500}
+    
+    return {
+        'name': 'circle', 
+        'padding': 10, 
+        'animate': True, 
+        'animationDuration': 500,
+        'refresh_trigger': n_clicks
+    }
+    
+@app.callback(
+    Output('modal-editar-peso', 'style'),
+    Output('modal-input-peso', 'value'),
+    Output('aresta-edit-store', 'data'),
+    Input('edge-edit-store', 'data'),       # Veio do JS (duplo clique)
+    Input('btn-cancelar-peso', 'n_clicks'), # Clique em cancelar
+    Input('btn-salvar-peso', 'n_clicks'),   # Clique em salvar
+    State('modal-editar-peso', 'style'),
+    prevent_initial_call=True
+)
+def alternar_modal(edge_data, cancel_clicks, save_clicks, current_style):
+    ctx = dash.callback_context
+    if not ctx.triggered: raise PreventUpdate
+    prop_id = ctx.triggered[0]['prop_id']
 
+    novo_estilo = current_style.copy()
+
+    if prop_id == 'edge-edit-store.data' and edge_data:
+        novo_estilo['display'] = 'flex'
+        return novo_estilo, edge_data.get('label', ''), edge_data
+    
+    novo_estilo['display'] = 'none'
+    return novo_estilo, dash.no_update, dash.no_update
+    
 @app.callback(
     Output('conteudo-paineis', 'style'),
     Output('toggle-painel-btn', 'children'),
@@ -361,7 +457,24 @@ def alternar_painel_inteiro(n_clicks):
         return estilo_base, '◀'  
     else:
         estilo_base['display'] = 'flex' 
-        return estilo_base, '▶' 
+        return estilo_base, '▶'
+
+# =============================================================================
+# Callbacks Javascript (Lado do Cliente)
+# =============================================================================
+
+app.clientside_callback(
+    dash.ClientsideFunction(namespace='grafos', function_name='escutarTeclado'),
+    Output('keyboard-listener-dummy', 'children'),
+    Input('cytoscape-graph', 'id')
+)
+
+app.clientside_callback(
+    dash.ClientsideFunction(namespace='grafos', function_name='editarAresta'),
+    Output('edge-edit-store', 'data'),
+    Input('cytoscape-graph', 'tapEdgeData'),
+    prevent_initial_call=True
+)
 
 @server.route('/download/graph.txt')
 def download_graph_file():
