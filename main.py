@@ -21,7 +21,7 @@ from dash.exceptions import PreventUpdate
 import networkx as nx
 
 # =============================================================================
-# 1. Backend: NetworkX como Fonte da Verdade e Configurações
+# 1. Backend: NetworkX e Configurações
 # =============================================================================
 
 G = nx.Graph()
@@ -129,16 +129,10 @@ def serve_layout():
         dcc.Store(id='aresta-edit-store', data=None),
         dcc.Store(id='edge-edit-store', data=None),
 
-        html.Div(id='modal-editar-peso', style={
-            'display': 'none', 'position': 'fixed', 'top': 0, 'left': 0, 'width': '100%', 'height': '100%', 
-            'backgroundColor': 'rgba(0,0,0,0.5)', 'zIndex': 9999, 'justifyContent': 'center', 'alignItems': 'center'
-        }, children=[
-            html.Div(style={
-                'backgroundColor': 'white', 'padding': '25px', 'borderRadius': '10px', 
-                'boxShadow': '0 4px 15px rgba(0,0,0,0.3)', 'textAlign': 'center', 'width': '300px'
-            }, children=[
+        html.Div(id='modal-editar-peso', className='modal', style={'display': 'none'}, children=[
+            html.Div(className='modal-box', children=[
                 html.H3("Editar Peso da Aresta", style={'marginTop': '0'}),
-                dcc.Input(id='modal-input-peso', type='text', style={'width': '100%', 'marginBottom': '20px', 'padding': '10px', 'boxSizing': 'border-box', 'fontSize': '16px'}),
+                dcc.Input(id='modal-input-peso', type='text', style={'width': '100%', 'marginBottom': '20px', 'padding': '10px', 'boxSizing': 'border-box', 'fontSize': '14px'}),
                 html.Div(style={'display': 'flex', 'justifyContent': 'space-between'}, children=[
                     html.Button('Cancelar', id='btn-cancelar-peso', style={'backgroundColor': '#f44336', 'color': 'white', 'flex': '1', 'marginRight': '5px'}),
                     html.Button('Salvar', id='btn-salvar-peso', style={'backgroundColor': '#4CAF50', 'color': 'white', 'flex': '1', 'marginLeft': '5px'})
@@ -172,46 +166,36 @@ def serve_layout():
                 ),
                 html.Div(id='empty-graph-message', style={'position': 'absolute', 'top': '10px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none'}),
                 html.Div(id='action-output-message', style={'position': 'absolute', 'bottom': '0px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold'}),
-                html.Div(id='keyboard-listener-dummy', style={'display': 'none'})
+                html.Div(id='keyboard-listener-dummy', style={'display': 'none'}),
+                html.Button(id='btn-hidden-center', n_clicks=0, style={'display': 'none'})
             ]),
 
             # LADO DIREITO: SETA + PAINEL VERTICAL
-            html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '80vh', 'position': 'absolute', 'right': '0', 'top': '12vh', 'padding': '7px'}, children=[
+            html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '80vh', 'position': 'absolute', 'right': '0', 'top': '12vh', 'padding': '6px'}, children=[
 
                 html.Div(style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center'}, children=[
                     html.Button('◀', id='toggle-painel-btn', n_clicks=0, style={
                         'background': '#e0e0e0', 'color': 'black', 'border': 'none',
-                        'fontSize': '22px', 'cursor': 'pointer', 'padding': '0', 'height': '10%','borderRadius': '10px','width': '30px'
+                        'fontSize': '22px', 'cursor': 'pointer', 'padding': '0', 'height': '10%','borderRadius': '10px 0 0 10px','width': '31px'
                     })
                 ]),
 
-                html.Div(id='conteudo-paineis', className='container-paineis', style={
-                    'display': 'none', 'flexDirection': 'column', 'width': '250px',
-                    'backgroundColor': '#e0e0e0', 'borderRadius': '10px', 'marginRight': '0px'
-                }, children=[
-
-                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
+                html.Div(id='conteudo-paineis', className='container-paineis', style={'display': 'none'}, children=[
+                    html.Div(className='cartao-painel', children=[
                         html.H3("Vértice", style={'marginTop': '0', 'fontSize': '16px'}),
                         html.Button('Adicionar Vértice', id='add-vertex-button', style={'width': '100%'})
                     ]),
 
-                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
+                    html.Div(className='cartao-painel', children=[
                         html.H3("Interação", style={'marginTop': '0', 'fontSize': '16px'}),
                         html.Button('Modo: Seleção', id='connect-mode-button', style={'width': '100%'}),
                         html.P(id='connect-mode-help-text', children="(Selecione elementos para deletar)", style={'fontSize': '12px', 'color': 'grey', 'marginBottom': '0'})
                     ]),
 
-                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
+                    html.Div(className='cartao-painel', children=[
                         html.H3("Deletar", style={'marginTop': '0', 'fontSize': '16px'}),
                         html.Button('Deletar Selecionado', id='delete-selected-button', disabled=True, style={'width': '100%'})
                     ]),
-
-                    # html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%'}, children=[
-                    #     html.H3("Arquivo", style={'marginTop': '0', 'fontSize': '16px'}),
-                    #     dcc.Upload(id='upload-data', children=html.Button('Carregar Arquivo', style={'width': '100%'})),
-                    #     html.Br(),
-                    #     html.A(html.Button("Salvar e Baixar", style={'width': '100%'}), id="download-link", href="/download/graph.txt")
-                    # ])
                 ])
             ])
         ])
@@ -243,6 +227,7 @@ def _update_node_positions(cyto_elements):
     Input('cytoscape-graph', 'tapNodeData'),
     Input('cytoscape-graph', 'tapEdgeData'),
     Input('btn-salvar-peso', 'n_clicks'),
+    Input('btn-hidden-center', 'n_clicks'),
     State('cytoscape-graph', 'selectedNodeData'),
     State('cytoscape-graph', 'selectedEdgeData'),
     State('upload-data', 'filename'),
@@ -254,7 +239,7 @@ def _update_node_positions(cyto_elements):
     prevent_initial_call=True
 )
 def main_callback(
-    add_v, del_s, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso,
+    add_v, del_s, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center,
     sel_nodes, sel_edges, filename, cyto_elements, source_node_id, connect_mode_on,
     aresta_edit_store_data, modal_input_value
 ):
@@ -326,7 +311,7 @@ def main_callback(
             
             if G.has_edge(src, tgt):
                 G.edges[src, tgt]['label'] = novo_peso
-                msg = html.Span(f"Peso atualizado para {novo_peso}.", style={'color': 'green'})
+                msg = html.Span(f"Peso atualizado para {novo_peso}", style={'color': 'green'})
                 graph_changed = True
 
     elif prop_id == 'upload-data.contents':
@@ -338,6 +323,17 @@ def main_callback(
             layout_output = {'name': 'circle', 'animate': True, 'animationDuration': 500}
             new_source_node = None
             graph_changed = True
+    
+    elif prop_id == 'btn-hidden-center.n_clicks':
+        if btn_hidden_center:
+            layout_output = {
+                'name': 'preset', 
+                'fit': True,        
+                'padding': 30,      
+                'animate': True, 
+                'animationDuration': 500,
+                'refresh_trigger': f"zoom_{btn_hidden_center}"
+            }
 
     if graph_changed:
         save_graph_data()
@@ -449,7 +445,7 @@ def alternar_modal(edge_data, cancel_clicks, save_clicks, current_style):
 def alternar_painel_inteiro(n_clicks):
     estilo_base = {
         'flexDirection': 'column', 'width': '250px',
-        'backgroundColor': '#e0e0e0', 'borderRadius': '10px', 'marginRight': '0px'
+        'backgroundColor': '#e0e0e0', 'borderRadius': '10px 0 0 10px', 'marginRight': '0px'
     }
     
     if n_clicks % 2 == 0:

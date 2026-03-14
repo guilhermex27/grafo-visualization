@@ -5,18 +5,38 @@ body {
     margin: 0;
     padding: 5px;
 }
+.modal{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5); 
+    z-index: 9999; 
+    justify-content: center; 
+    align-items: center
+}
 
-/* Uma classe para as divs que guardam os botões */
-.cartao-painel {
+.modal-box {
     background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* Dá uma sombrinha 3D */
-    padding: 15px;
-    margin: 10px;
+    padding: 25px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    width: 300px;
     text-align: center;
 }
 
-/* Uma classe para organizar os cartões lado a lado */
+.cartao-painel {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    padding: 15px;
+    margin: 10px;
+    text-align: center;
+    margin: 0 auto; 
+    width: 89%;
+}
+
 .container-paineis {
     display: flex;
     justify-content: space-between;
@@ -24,9 +44,13 @@ body {
     background-color: #e0e0e0;
     padding: 15px;
     border-radius: 10px;
+    flex-direction: column; 
+    width: 250px;
+    background-color: #e0e0e0; 
+    border-radius: 10px;
+    margin-right: 0px;
 }
 
-/* Enfeitando os botões */
 button {
     background-color: #4CAF50; /* Verde */
     color: white;

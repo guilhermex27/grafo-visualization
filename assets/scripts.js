@@ -29,9 +29,9 @@ window.dash_clientside.grafos = {
         return window.dash_clientside.no_update;
     },
 
-    // 2. Função da Tecla Delete
     escutarTeclado: function(graph_id) {
         if (!window.keydownListenerAdded) {
+
             document.addEventListener('keydown', function(event) {
                 if (event.key === 'Delete') {
                     var btnDeletar = document.getElementById('delete-selected-button');
@@ -40,6 +40,17 @@ window.dash_clientside.grafos = {
                     }
                 }
             });
+
+            document.addEventListener('dblclick', function(event) {
+                let container = document.getElementById('cytoscape-graph');
+                if (container && container.contains(event.target)) {
+                    let btnCentralizar = document.getElementById('btn-hidden-center');
+                    if (btnCentralizar) {
+                        btnCentralizar.click();
+                    }
+                }
+            });
+
             window.keydownListenerAdded = true;
         }
         return window.dash_clientside.no_update;
