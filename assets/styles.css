@@ -78,6 +78,43 @@ button:disabled {
     width: 15vh;
 }
 
+.info {
+    display: block;
+}
+
+.info button{
+    background-image: url(info.png);
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 55px;
+    height: 55px; 
+    z-index: 50;
+    background-color: #fff;
+    padding: 5px 10px; 
+    cursor: pointer; 
+}
+
+.info button:hover {
+    background-color: #c8cac8;
+}
+
+.card-info {
+    position: absolute;
+    top: 6vh;
+    left: 1vh;
+    z-index: 50;
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    min-width: 160px;
+}
+
 .image-container button {
     background-image: url(home.png);
     background-size: contain;
