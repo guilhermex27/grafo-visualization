@@ -72,6 +72,60 @@ def nx_to_cytoscape(graph_obj):
         cy_elements.append(cy_edge)
     return cy_elements
 
+def obter_propriedades_grafo(graph_obj):
+    if graph_obj.number_of_nodes() == 0:
+        return "Vazio"
+        
+    props = []
+    
+    # 1. Simples vs Pseudografo (Checa laços)
+    tem_lacos = nx.number_of_selfloops(graph_obj) > 0
+    if tem_lacos:
+        props.append("Pseudografo")
+    else:
+        props.append("Simples")
+        
+    # 2. Conectividade e Ciclos
+    if graph_obj.is_directed():
+        if nx.is_strongly_connected(graph_obj):
+            props.append("Fortemente Conexo")
+        elif nx.is_weakly_connected(graph_obj):
+            props.append("Fracamente Conexo")
+        else:
+            props.append("Desconexo")
+            
+        if nx.is_directed_acyclic_graph(graph_obj):
+            props.append("DAG (Acíclico)")
+    else:
+        if nx.is_connected(graph_obj):
+            props.append("Conexo")
+        else:
+            props.append("Desconexo")
+            
+        if nx.is_tree(graph_obj):
+            props.append("Árvore")
+        elif nx.is_forest(graph_obj):
+            props.append("Floresta")
+            
+    # 3. Bipartido
+    if nx.is_bipartite(graph_obj):
+        props.append("Bipartido")
+        
+    # 4. Regular (Todos os nós têm o mesmo grau)
+    graus = [d for n, d in graph_obj.degree()]
+    if graus and len(set(graus)) == 1:
+        props.append("Regular")
+        
+    # 5. Completo
+    n = graph_obj.number_of_nodes()
+    e = graph_obj.number_of_edges()
+    if n > 1 and not tem_lacos:
+        max_edges = n * (n - 1) if graph_obj.is_directed() else n * (n - 1) // 2
+        if e == max_edges:
+            props.append("Completo")
+            
+    return ", ".join(props)
+
 def load_graph_data():
     global G
 
@@ -135,14 +189,15 @@ def serve_layout():
     initial_elements = nx_to_cytoscape(G)
 
     tipo_dir_init = "Orientado" if G.is_directed() else "Não Orientado"
-    # Como o valor padrão definido no RadioItems de peso é 'com_peso':
     tipo_peso_init = "Ponderado" 
+    propriedades_init = obter_propriedades_grafo(G)
     
     initial_info_children = [
         html.B("Vértices: "), f"{G.number_of_nodes()}", html.Br(),
         html.B("Arestas: "), f"{G.number_of_edges()}", html.Br(),
         html.B("Direção: "), tipo_dir_init, html.Br(),
-        html.B("Peso: "), tipo_peso_init
+        html.B("Peso: "), tipo_peso_init, html.Br(),
+        html.B("Propriedades: "), propriedades_init
     ]
 
     return html.Div([
@@ -196,7 +251,11 @@ def serve_layout():
                 ], className='info'),
                 html.Div(id='card-info-grafo', className='card-info', style={'display': 'none'}, children=[
                     html.H4("Informações Gerais", style={'marginTop': '0', 'marginBottom': '10px', 'color': '#333'}),
-                    html.Div(id='texto-info-grafo', children=initial_info_children, style={'fontSize': '14px', 'lineHeight': '1.6', 'color': '#444'})
+                    html.Div(id='texto-info-grafo', children=initial_info_children, style={'fontSize': '14px', 'lineHeight': '1.6', 'color': '#444'}),
+                    html.Div(id='info-detalhes-elemento', style={
+                        'display': 'none', 'marginTop': '10px', 'paddingTop': '10px', 
+                        'borderTop': '1px solid #ccc', 'fontSize': '13px', 'lineHeight': '1.6', 'color': '#555'
+                    })
                 ])
             ]),
 
@@ -332,8 +391,15 @@ def main_callback(
                     new_source_node = target_node_id
                     msg = html.Span(f"Vértice de origem {target_node_id} selecionado.", style={'color': '#f5a442'})
                 elif source_node_id == target_node_id:
+                    if G.has_edge(source_node_id, target_node_id):
+                        msg = html.Span("Laço já existe neste vértice.", style={'color': 'orange'})
+                    else:
+                        G.add_edge(source_node_id, target_node_id, label='1')
+                        G.edges[source_node_id, target_node_id]['real_source'] = source_node_id
+                        G.edges[source_node_id, target_node_id]['real_target'] = target_node_id
+                        msg = html.Span(f"Laço criado no vértice {source_node_id}.", style={'color': 'green'})
+                        graph_changed = True
                     new_source_node = None
-                    msg = html.Span("Modo de conexão cancelado.", style={'color': 'grey'})
                 else:
                     if G.has_edge(source_node_id, target_node_id):
                         msg = html.Span("Aresta já existe.", style={'color': 'orange'})
@@ -537,12 +603,14 @@ def main_callback(
 
     tipo_dir = "Orientado" if G.is_directed() else "Não Orientado"
     tipo_peso = "Não Ponderado" if toggle_peso == 'sem_peso' else "Ponderado"
+    propriedades_atuais = obter_propriedades_grafo(G)
     
     info_texto = [
         html.B("Vértices: "), f"{G.number_of_nodes()}", html.Br(),
         html.B("Arestas: "), f"{G.number_of_edges()}", html.Br(),
         html.B("Direção: "), tipo_dir, html.Br(),
-        html.B("Peso: "), tipo_peso
+        html.B("Peso: "), tipo_peso, html.Br(),
+        html.B("Propriedades: "), propriedades_atuais
     ]
 
     return new_elements, msg, layout_output, new_source_node, empty_msg, direcao_output, upload_reset, info_texto
@@ -566,11 +634,10 @@ def toggle_connect_mode(n_clicks, is_on):
     Output('cytoscape-graph', 'stylesheet'),
     Input('source-node-store', 'data'),
     Input('connect-mode-store', 'data'),
-    Input('toggle-direcao', 'value'), # NOVO GATILHO
-    Input('toggle-peso', 'value')     # NOVO GATILHO
+    Input('toggle-direcao', 'value'), 
+    Input('toggle-peso', 'value')     
 )
 def update_stylesheet(source_node_id, connect_mode_on, direcao, peso):
-    # Precisamos fazer uma cópia profunda manual para não alterar a constante BASE_STYLESHEET
     stylesheet = []
     for s in BASE_STYLESHEET:
         novo_s = s.copy()
@@ -580,14 +647,18 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso):
     # Aplicando as regras de Direção e Peso
     for style in stylesheet:
         if style['selector'] == 'edge':
+            
+            style['style']['curve-style'] = 'bezier'
+
             if direcao == 'orientado':
                 style['style']['target-arrow-shape'] = 'triangle'
-                style['style']['curve-style'] = 'bezier' # Necessário para a seta aparecer bem
+            else:
+                style['style']['target-arrow-shape'] = 'none'
                 
             if peso == 'sem_peso':
-                style['style']['label'] = '' # Esconde o texto
+                style['style']['label'] = '' 
             else:
-                style['style']['label'] = 'data(label)' # Mostra o texto
+                style['style']['label'] = 'data(label)'
 
     if connect_mode_on:
         stylesheet.append({'selector': ':selected', 'style': {'overlay-opacity': 0}})
@@ -690,6 +761,120 @@ def toggle_info_card(n_clicks, current_style):
     else:
         novo_estilo['display'] = 'none'
     return novo_estilo
+
+@app.callback(
+    Output('info-detalhes-elemento', 'children'),
+    Output('info-detalhes-elemento', 'style'),
+    Input('cytoscape-graph', 'selectedNodeData'),
+    Input('cytoscape-graph', 'selectedEdgeData'),
+    State('toggle-direcao', 'value'),
+    State('info-detalhes-elemento', 'style'),
+    State('toggle-peso', 'value'),  
+    prevent_initial_call=True
+)
+def exibir_detalhes_elemento(sel_nodes, sel_edges, direcao, current_style, modo_peso):
+    global G
+    novo_estilo = current_style.copy()
+    
+    # Se clicou no fundo branco (limpou a seleção), esconde o bloco
+    if not sel_nodes and not sel_edges:
+        novo_estilo['display'] = 'none'
+        return dash.no_update, novo_estilo
+        
+    novo_estilo['display'] = 'block'
+    is_directed = (direcao == 'orientado')
+    conteudo = []
+
+    # --------------------------------------------------------
+    # 1. SE CLICOU EM UM VÉRTICE
+    # --------------------------------------------------------
+    if sel_nodes and len(sel_nodes) == 1:
+        node_id = str(sel_nodes[0]['id'])
+        if not G.has_node(node_id): 
+            novo_estilo['display'] = 'none'
+            return dash.no_update, novo_estilo
+        
+        conteudo.append(html.B(f"Vértice: {node_id}"))
+        conteudo.append(html.Br())
+        
+        has_loop = G.has_edge(node_id, node_id)
+        conteudo.append(html.Span(f"Laço: {'Sim' if has_loop else 'Não'}"))
+        conteudo.append(html.Br())
+
+        list_edges = list(G.edges(node_id))
+        conteudo.append(html.Span(f"Arestas Incidentes: {', '.join([f'{u}-{v}' for u, v in list_edges]) if list_edges else 'Nenhuma'}"))
+        conteudo.append(html.Br())
+
+        if is_directed:
+            in_deg = G.in_degree(node_id)
+            out_deg = G.out_degree(node_id)
+            preds = list(G.predecessors(node_id))
+            succs = list(G.successors(node_id))
+            
+            conteudo.extend([
+                html.Span(f"Grau de Entrada: {in_deg}"), html.Br(),
+                html.Span(f"Grau de Saída: {out_deg}"), html.Br(),
+                html.Span(f"Antecessores: {', '.join(preds) if preds else 'Nenhum'}"), html.Br(),
+                html.Span(f"Sucessores: {', '.join(succs) if succs else 'Nenhum'}"), html.Br()
+            ])
+            
+            # Classificação Orientada
+            if in_deg == 0 and out_deg > 0: tipo = "Fonte"
+            elif out_deg == 0 and in_deg > 0: tipo = "Sumidouro"
+            elif in_deg == 0 and out_deg == 0: tipo = "Isolado"
+            else: tipo = "Comum"
+        else:
+            deg = G.degree(node_id)
+            vizinhos = list(G.neighbors(node_id))
+            
+            conteudo.extend([
+                html.Span(f"Grau: {deg}"), html.Br(),
+                html.Span(f"Adjacentes: {', '.join(vizinhos) if vizinhos else 'Nenhum'}"), html.Br()
+            ])
+            
+            # Classificação Não Orientada
+            if deg == 0: tipo = "Isolado"
+            elif deg == 1: tipo = "Folha"
+            else: tipo = "Comum"
+            
+        conteudo.append(html.Span(f"Classificação: {tipo}"))
+
+    # --------------------------------------------------------
+    # 2. SE CLICOU EM UMA ARESTA
+    # --------------------------------------------------------
+    elif sel_edges and len(sel_edges) == 1:
+        edge = sel_edges[0]
+        src = str(edge['source'])
+        tgt = str(edge['target'])
+        
+        if not G.has_edge(src, tgt):
+            novo_estilo['display'] = 'none'
+            return dash.no_update, novo_estilo
+            
+        peso = G.edges[src, tgt].get('label', '1')
+        tipo = "Laço" if src == tgt else "Simples"
+        
+        if modo_peso != 'sem_peso':
+            conteudo.extend([
+                html.B(f"Aresta Selecionada: {src} - {tgt}"), html.Br(),
+                html.Span(f"Origem: {src}"), html.Br(),
+                html.Span(f"Destino: {tgt}"), html.Br(),
+                html.Span(f"Peso: {peso}"), html.Br(),
+                html.Span(f"Tipo: {tipo}")
+            ])
+        else:
+            conteudo.extend([
+                html.B(f"Aresta Selecionada: {src} - {tgt}"), html.Br(),
+                html.Span(f"Origem: {src}"), html.Br(),
+                html.Span(f"Destino: {tgt}"), html.Br(),
+                html.Span(f"Tipo: {tipo}")
+            ])
+    else:
+        # Se selecionou mais de um por engano, não mostra nada
+        novo_estilo['display'] = 'none'
+        return dash.no_update, novo_estilo
+
+    return conteudo, novo_estilo
 
 # =============================================================================
 # Callbacks Javascript (Lado do Cliente)
