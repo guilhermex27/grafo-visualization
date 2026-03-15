@@ -54,3 +54,8 @@ Arestas podem ter pesos (ex: distância, custo, capacidade), usados em algoritmo
 Arestas paralelas: duas ou mais arestas ligam os mesmos vértices. 
 Laço (loop): aresta que conecta um vértice a ele mesmo. 
 Um grafo sem laços nem arestas paralelas é chamado de grafo simples.
+
+
+Add trava no modo conexao(fique no modo de seleçao), delete de arestas e ediçao de arestas
+Mudar o estilo da hud do player
+Add trava do painel de gerenciamento
