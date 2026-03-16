@@ -36,6 +36,32 @@ body {
     margin: 0 auto; 
     width: 89%;
 }
+.btn-paineis {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+/* , style={
+                        'background': '#e0e0e0', 'color': 'black', 'border': 'none',
+                        'fontSize': '22px', 'cursor': 'pointer', 'padding': '0', 'height': '10%','borderRadius': '10px 0 0 10px','width': '31px'
+                    } */
+.btn-paineis button {
+    background: #e0e0e0;
+    align-items: center;
+    color: black;
+    border: none;
+    font-size: 22px;
+    z-index: 5;
+    cursor: pointer;
+    padding: 0; 
+    height: 10%;
+    border-radius: 10px 0 0 10px;
+    width: 31px;
+}
+
+.btn-paineis button:hover {
+    background-color: #d5d5d5;
+}
 
 .container-paineis {
     display: flex;
@@ -49,6 +75,7 @@ body {
     background-color: #e0e0e0; 
     border-radius: 10px;
     margin-right: 0px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
 button {
@@ -134,4 +161,41 @@ button:disabled {
 
 .image-container button:hover{
     background-color: #c8cac8;
+}
+
+.player {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+    background-color: rgba(255, 255, 255, 0.95); 
+    border: 2px solid #333;
+    border-radius: 8px;
+    padding: 15px; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+    flex-direction: column; 
+    align-items: center; 
+    min-width: 320px;
+}
+
+.player button {
+    display: flex;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-color: transparent; 
+    color: white;
+    width: 3.5vh;
+    height: 3.2vh;
+    border: none;
+    padding: 20px 0px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.player button:hover {
+    background-color: #b0b0b0;
 }

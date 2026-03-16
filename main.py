@@ -35,22 +35,27 @@ BASE_STYLESHEET = [
         'selector': 'node',
         'style': {
             'label': 'data(id)',
-            'text-valign': 'center', 'color': 'white',
-            'text-outline-color': '#333', 'text-outline-width': '2px',
-            'background-color': '#888'
+            'text-valign': 'center', 'color': '#333',
+            'text-outline-color': '#333', 'text-outline-width': '1px',
+            'background-color': 'white', 'border-width': 4, 'border-color': '#999998',
+            'transition-property': 'background-color, border-width, border-color, width, height',
+            'transition-duration': '0.2s' 
         }
     },
     {
         'selector': 'edge',
         'style': {
             'label': 'data(label)', 'color': 'black', 'font-weight': '800',
-            'text-margin-y': '-15px', 
+            'text-margin-y': '-20vh', 'text-margin-x': '0',
+            'transition-property': 'line-color, width, target-arrow-color',
+            'transition-duration': '0.2s'
         }
     },
     {
         'selector': ':selected',
         'style': {
-            'border-width': 3, 'border-color': '#42a5f5'
+            'border-width': 4, 'border-color': '#42a5f5',
+            'background-color': '#64b5f6' # Fica mais claro quando selecionado
         }
     }
 ]
@@ -250,7 +255,7 @@ def serve_layout():
                     wheelSensitivity=0.1
                 ),
                 html.Div(id='empty-graph-message', style={'position': 'absolute', 'top': '10px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none'}),
-                html.Div(id='action-output-message', style={'position': 'absolute', 'bottom': '0px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold'}),
+                html.Div(id='action-output-message', style={'position': 'absolute', 'bottom': '-2.5vh', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold'}),
                 html.Div(id='keyboard-listener-dummy', style={'display': 'none'}),
                 html.Button(id='btn-hidden-center', n_clicks=0, style={'display': 'none'}),
 
@@ -277,20 +282,27 @@ def serve_layout():
                     html.Div(id='texto-variaveis-algo', style={'fontSize': '13px', 'lineHeight': '1.6', 'color': '#444'})
                 ]),
 
-                html.Div(id='player-flutuante', style={
-                    'display': 'none', 'position': 'absolute', 'bottom': '20px', 'left': '50%', 'transform': 'translateX(-50%)',
-                    'zIndex': 50, 'backgroundColor': 'rgba(255, 255, 255, 0.95)', 'border': '2px solid #333', 'borderRadius': '8px',
-                    'padding': '15px', 'boxShadow': '0 4px 15px rgba(0,0,0,0.3)', 'flexDirection': 'column', 'alignItems': 'center', 'minWidth': '320px'
-                }, children=[
-                    html.Div(style={'display': 'flex', 'gap': '10px', 'marginBottom': '10px', 'width': '100%', 'justifyContent': 'center'}, children=[
-                        html.Button('⏹️ Stop', id='btn-stop-algo', style={'padding': '8px 12px', 'backgroundColor': '#f44336', 'color': 'white', 'fontWeight': 'bold', 'border': 'none', 'borderRadius': '4px', 'cursor': 'pointer'}),
-                        html.Button('⏪ Voltar', id='btn-prev-algo', style={'padding': '8px 12px', 'backgroundColor': '#2196F3', 'color': 'white', 'fontWeight': 'bold', 'border': 'none', 'borderRadius': '4px', 'cursor': 'pointer'}),
-                        html.Button('⏯️ Play/Pause', id='btn-play-algo', style={'padding': '8px 12px', 'backgroundColor': '#4CAF50', 'color': 'white', 'fontWeight': 'bold', 'border': 'none', 'borderRadius': '4px', 'cursor': 'pointer'}),
-                        html.Button('⏭️ Passo', id='btn-step-algo', style={'padding': '8px 12px', 'backgroundColor': '#FF9800', 'color': 'white', 'fontWeight': 'bold', 'border': 'none', 'borderRadius': '4px', 'cursor': 'pointer'}),
+                html.Div(id='player-flutuante', className='player',style={'display': 'none'}, children=[
+                    html.Div(style={'display': 'flex', 'gap': '10px', 'marginBottom': '10px', 'width': '100%', 'justifyContent': 'space-between'}, children=[
+                        html.Button(id='btn-stop-algo', style={'backgroundImage': 'url(assets/stop.png)'}),
+                        html.Button(id='btn-prev-algo', style={'backgroundImage': 'url(assets/previous.png)'}),
+                        html.Button(id='btn-play-algo', style={'backgroundImage': 'url(assets/play.png)'}),
+                        html.Button(id='btn-step-algo', style={'backgroundImage': 'url(assets/next.png)'}),
                     ]),
-                    html.Div(style={'fontSize': '12px', 'marginBottom': '5px', 'color': '#333', 'fontWeight': 'bold'}, children="Velocidade da Animação:"),
-                    html.Div(style={'width': '95%'}, children=[
-                        dcc.Slider(id='slider-velocidade', min=200, max=2000, step=200, value=1000, marks={200: 'Rápida', 2000: 'Lenta'})
+                    html.Div(style={'fontSize': '12px', 'marginBottom': '15px', 'color': '#333', 'fontWeight': 'bold'}, children="Velocidade da Animação:"),
+                    html.Div(style={'width': '95%', 'paddingBottom': '10px'}, children=[
+                        dcc.Slider(
+                            id='slider-velocidade', 
+                            min=0, max=4, step=None, value=2, # O 2 continua sendo o "1x" no meio
+                            marks={
+                                0: {'label': '0.25x', 'style': {'fontWeight': 'bold'}},
+                                1: {'label': '0.5x', 'style': {'fontWeight': 'bold'}},
+                                2: {'label': '1x', 'style': {'fontWeight': 'bold'}},
+                                3: {'label': '1.5x', 'style': {'fontWeight': 'bold'}},
+                                4: {'label': '2x', 'style': {'fontWeight': 'bold'}}
+                            },
+                            # tooltip={"always_visible": False, "allow_direct_input": False},
+                        )
                     ])
                 ]),
             ]),
@@ -298,11 +310,8 @@ def serve_layout():
             # LADO DIREITO: SETA + PAINEL VERTICAL
             html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '80vh', 'position': 'absolute', 'right': '0', 'top': '12vh', 'padding': '6px'}, children=[
 
-                html.Div(style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center'}, children=[
-                    html.Button('◀', id='toggle-painel-btn', n_clicks=0, style={
-                        'background': '#e0e0e0', 'color': 'black', 'border': 'none',
-                        'fontSize': '22px', 'cursor': 'pointer', 'padding': '0', 'height': '10%','borderRadius': '10px 0 0 10px','width': '31px'
-                    })
+                html.Div(style={'display': 'flex'}, className='btn-paineis', children=[
+                    html.Button('◀', id='toggle-painel-btn', n_clicks=0)
                 ]),
 
                 html.Div(id='conteudo-paineis', className='container-paineis', style={'display': 'none'}, children=[
@@ -729,12 +738,12 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
             if cor == "Cinza":
                 stylesheet.append({
                     'selector': f'node[id = "{no_id}"]',
-                    'style': {'background-color': '#9E9E9E', 'border-width': 4, 'border-color': '#FFC107', 'color': 'black'}
+                    'style': {'background-color': '#999998', 'border-width': 4, 'border-color': '#FFC107', 'color': '#333'}
                 })
             elif cor == "Preto":
                 stylesheet.append({
                     'selector': f'node[id = "{no_id}"]',
-                    'style': {'background-color': '#212121', 'color': 'white'}
+                    'style': {'background-color': '#212121', 'color': 'white', 'text-outline-color': 'white', 'border-color': '#212121'}
                 })
         
         # Destaca a Árvore de Busca (Arestas) usando o π
@@ -1021,15 +1030,15 @@ def gerenciar_fita_algoritmo(click_carregar, click_stop, algo, source):
     Output('animation-interval', 'interval'),
     Input('btn-play-algo', 'n_clicks'),
     Input('btn-step-algo', 'n_clicks'),
-    Input('btn-prev-algo', 'n_clicks'), # NOVO INPUT: Voltar
+    Input('btn-prev-algo', 'n_clicks'),
     Input('animation-interval', 'n_intervals'),
+    Input('slider-velocidade', 'value'),  # <--- BÔNUS: Virou Input para ser instantâneo!
     State('is-playing-store', 'data'),
     State('current-frame-store', 'data'),
     State('snapshots-store', 'data'),
-    State('slider-velocidade', 'value'),
     prevent_initial_call=True
 )
-def controlar_player(btn_play, btn_step, btn_prev, n_ints, is_playing, current_frame, snaps, velocidade):
+def controlar_player(btn_play, btn_step, btn_prev, n_ints, velocidade_idx, is_playing, current_frame, snaps):
     ctx = dash.callback_context
     if not ctx.triggered or not snaps: 
         raise PreventUpdate
@@ -1037,29 +1046,38 @@ def controlar_player(btn_play, btn_step, btn_prev, n_ints, is_playing, current_f
     prop_id = ctx.triggered[0]['prop_id']
     total_frames = len(snaps)
 
+    # --- A MÁGICA DA TRADUÇÃO DE VELOCIDADE ---
+    # 0.25x (4s), 0.5x (2s), 1x (1s), 2x (0.5s)
+    mapa_ms = {0: 4000, 1: 2000, 2: 1000, 3: 667, 4: 500}
+    intervalo_ms = mapa_ms.get(velocidade_idx, 1000)
+    # ------------------------------------------
+
+    # Se o gatilho foi APENAS arrastar o slider, atualizamos o relógio sem pular o frame
+    if prop_id == 'slider-velocidade.value':
+        return current_frame, is_playing, not is_playing, intervalo_ms
+
     if prop_id == 'btn-play-algo.n_clicks':
         novo_status_play = not is_playing
         if novo_status_play and current_frame >= total_frames - 1:
-            return 0, True, False, velocidade # Chegou no fim, recomeça
-        return current_frame, novo_status_play, not novo_status_play, velocidade
+            return 0, True, False, intervalo_ms # Chegou no fim, recomeça do zero
+        return current_frame, novo_status_play, not novo_status_play, intervalo_ms
 
     elif prop_id == 'btn-step-algo.n_clicks':
         proximo_frame = min(current_frame + 1, total_frames - 1)
-        return proximo_frame, False, True, velocidade
+        return proximo_frame, False, True, intervalo_ms
 
     elif prop_id == 'btn-prev-algo.n_clicks':
-        # Volta um frame (no mínimo zero)
         quadro_anterior = max(current_frame - 1, 0)
-        return quadro_anterior, False, True, velocidade
+        return quadro_anterior, False, True, intervalo_ms
 
     elif prop_id == 'animation-interval.n_intervals':
         if is_playing:
             proximo_frame = current_frame + 1
             if proximo_frame >= total_frames:
-                return current_frame, False, True, velocidade # Auto-pause no fim
-            return proximo_frame, True, False, velocidade
+                return current_frame, False, True, intervalo_ms # Auto-pause no fim
+            return proximo_frame, True, False, intervalo_ms
 
-    return current_frame, is_playing, not is_playing, velocidade
+    return current_frame, is_playing, not is_playing, intervalo_ms
 
 @app.callback(
     Output('card-execucao-algo', 'style'),
@@ -1115,19 +1133,22 @@ def atualizar_painel_raiox(current_frame, snaps, current_style):
     Output('toggle-painel-btn', 'children', allow_duplicate=True),
     Output('btn-info-grafo', 'style'),
     Output('top-buttons-container', 'style'),
-    Output('toggle-painel-btn', 'disabled'), # <--- NOVO OUTPUT: Trava o botão
+    Output('toggle-painel-btn', 'disabled'),
+    Output('card-info-grafo', 'style', allow_duplicate=True),
     Input('snapshots-store', 'data'),
     State('player-flutuante', 'style'),
     State('conteudo-paineis', 'style'),
     State('btn-info-grafo', 'style'),
     State('top-buttons-container', 'style'),
     State('toggle-painel-btn', 'n_clicks'),
+    State('card-info-grafo', 'style'),
     prevent_initial_call=True
-)
-def alternar_modo_execucao(snaps, style_player, style_painel, style_info, style_top, n_clicks_toggle):
+)#a
+def alternar_modo_execucao(snaps, style_player, style_painel, style_info, style_top, n_clicks_toggle, style_info_card):
     s_player = style_player.copy() if style_player else {}
     s_painel = style_painel.copy() if style_painel else {}
     s_info = style_info.copy() if style_info else {}
+    style_info_card_copy = style_info_card.copy() if style_info_card else {}
     s_top = style_top.copy() if style_top else {'display': 'flex', 'justifyContent': 'start', 'transition': 'opacity 0.3s'}
     n_clicks = n_clicks_toggle if n_clicks_toggle is not None else 0
 
@@ -1136,14 +1157,16 @@ def alternar_modo_execucao(snaps, style_player, style_painel, style_info, style_
         s_player['display'] = 'flex'
         s_painel['display'] = 'none' 
         seta = '◀'
-        s_info['display'] = 'none'   
+        # s_info['display'] = 'none'
+        style_info_card_copy['display'] = 'none'
         s_top['pointerEvents'] = 'none' 
         s_top['opacity'] = '0.3'
         travar_painel = True # <--- Trava o botão para não abrir
     else:
         # MODO NORMAL
         s_player['display'] = 'none'
-        s_info['display'] = 'block'
+        # s_info['display'] = 'block'
+        style_info_card_copy['display'] = 'none'
         s_top['pointerEvents'] = 'auto'
         s_top['opacity'] = '1'
         travar_painel = False # <--- Destrava o botão
@@ -1155,7 +1178,7 @@ def alternar_modo_execucao(snaps, style_player, style_painel, style_info, style_
             s_painel['display'] = 'flex'
             seta = '▶'
         
-    return s_player, s_painel, seta, s_info, s_top, travar_painel
+    return s_player, s_painel, seta, s_info, s_top, travar_painel, style_info_card_copy
 
 # =============================================================================
 # Callbacks Javascript (Lado do Cliente)
