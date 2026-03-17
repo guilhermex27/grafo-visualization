@@ -18,6 +18,8 @@ import dash_cytoscape as cyto
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
+import dash_bootstrap_components as dbc
+
 import networkx as nx
 
 from scripts.bfs import bfs_snapshots
@@ -188,7 +190,7 @@ def save_graph_data():
 # 3. Layout da Aplicação Dash
 # =============================================================================
 
-app = dash.Dash(__name__, suppress_callback_exceptions=True)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
 server = app.server
 
 def serve_layout():
@@ -208,17 +210,17 @@ def serve_layout():
         html.B("Propriedades: "), propriedades_init
     ]
 
-    return html.Div([
+    return dbc.Container(fluid=True, style={'padding': '10px', 'overflowX': 'hidden'}, children=[
         dcc.Store(id='source-node-store', data=None),
         dcc.Store(id='connect-mode-store', data=False),
         dcc.Store(id='aresta-edit-store', data=None),
         dcc.Store(id='edge-edit-store', data=None),
+        dcc.Store(id='snapshots-store', data=None),       
+        dcc.Store(id='current-frame-store', data=0),      
+        dcc.Store(id='is-playing-store', data=False),     
+        dcc.Interval(id='animation-interval', interval=1000, n_intervals=0, disabled=True), 
 
-        dcc.Store(id='snapshots-store', data=None),       # Guarda a fita de filme gerada
-        dcc.Store(id='current-frame-store', data=0),      # Guarda em qual quadro estamos (0, 1, 2...)
-        dcc.Store(id='is-playing-store', data=False),     # Diz se está tocando ou pausado
-        dcc.Interval(id='animation-interval', interval=1000, n_intervals=0, disabled=True), # O relógio (1000ms = 1s)
-
+        # MODAL ORIGINAL MANTIDO
         html.Div(id='modal-editar-peso', className='modal', style={'display': 'none'}, children=[
             html.Div(className='modal-box', children=[
                 html.H3("Editar Peso da Aresta", style={'marginTop': '0'}),
@@ -229,60 +231,50 @@ def serve_layout():
                 ])
             ])
         ]),
-        html.Div(id='top-buttons-container', style={'display': 'flex', 'justifyContent': 'start', 'transition': 'opacity 0.3s'}, children=[
-            html.H1("Editor de Grafo Interativo", style={'paddingLeft': '10px','paddingRight': '20px'}),
-            html.Div([
-                html.Button(id='home-button'),
-            ], className='image-container'),
-            html.Div([
-                html.A(html.Button(style={'backgroundImage': 'url(assets/download.png)','backgroundPositionX': '1px','backgroundPositionY': '7px'}), id="download-link", href="/download/graph.txt"),
-            ], className='image-container'),
-            html.Div(children=[
-                dcc.Upload(id='upload-data', children=html.Button(style={'backgroundImage': 'url(assets/upload.png)','backgroundPositionX': '-1px','marginTop':'13px'})),
-            ], className='image-container')
+
+        # LINHA 1: CABEÇALHO ORIGINAL
+        dbc.Row(id='top-buttons-container', style={'display': 'flex', 'justifyContent': 'start', 'transition': 'opacity 0.3s', 'marginBottom': '10px'}, children=[
+            dbc.Col(html.H1("Editor de Grafo Interativo", style={'paddingLeft': '10px','paddingRight': '20px', 'margin': '0'}), width=8),
+            dbc.Col(style={'display': 'flex', 'justifyContent': 'flex-end'}, width=4, children=[
+                html.Div([html.Button(id='home-button')], className='image-container'),
+                html.Div([html.A(html.Button(style={'backgroundImage': 'url(assets/download.png)','backgroundPositionX': '1px','backgroundPositionY': '7px'}), id="download-link", href="/download/graph.txt")], className='image-container'),
+                html.Div(children=[dcc.Upload(id='upload-data', children=html.Button(style={'backgroundImage': 'url(assets/upload.png)','backgroundPositionX': '-1px','marginTop':'13px'}))], className='image-container')
+            ])
         ]),
 
-        html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '90vh', 'width': '100%'}, children=[
+        # LINHA 2: GRAFO E PAINEL
+       # LINHA 2: GRAFO E PAINEL
+        # Adicionado overflowX: hidden para não criar barra de rolagem quando o painel deslizar pra fora
+        dbc.Row(style={'margin': '0', 'position': 'relative', 'overflowX': 'hidden'}, children=[
 
-            # LADO ESQUERDO: O GRAFO (flex: 1 faz ele ocupar todo o espaço)
-            html.Div(style={'flex': '1','position': 'relative', 'border': '1px solid #ccc', 'borderRadius': '8px', 'marginLeft': '2px', 'backgroundColor': '#fff'}, children=[
+            # LADO ESQUERDO: O GRAFO (Agora sempre fixo em 12 colunas, nunca mais muda de tamanho!)
+            dbc.Col(id='coluna-grafo', width=12, style={'position': 'relative', 'border': '1px solid #ccc', 'borderRadius': '8px', 'backgroundColor': '#fff', 'height': '85vh', 'padding': '0'}, children=[
                 cyto.Cytoscape(
-                    id='cytoscape-graph',
-                    elements=initial_elements,
-                    stylesheet=BASE_STYLESHEET,
+                    id='cytoscape-graph', elements=initial_elements, stylesheet=BASE_STYLESHEET,
                     style={'width': '100%', 'height': '100%'},
                     layout={'name': 'circle', 'animate': True, 'animationDuration': 500},
                     wheelSensitivity=0.1
                 ),
                 html.Div(id='empty-graph-message', style={'position': 'absolute', 'top': '10px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none'}),
-                html.Div(id='action-output-message', style={'position': 'absolute', 'bottom': '-2.5vh', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold'}),
+                html.Div(id='action-output-message', style={'position': 'absolute', 'bottom': '10px', 'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold'}),
                 html.Div(id='keyboard-listener-dummy', style={'display': 'none'}),
                 html.Button(id='btn-hidden-center', n_clicks=0, style={'display': 'none'}),
 
-                html.Div([
-                    html.Button(id='btn-info-grafo', n_clicks=0)
-                ], className='info'),
+                html.Div([html.Button(id='btn-info-grafo', n_clicks=0)], className='info'),
                 html.Div(id='card-info-grafo', className='card-info', style={'display': 'none'}, children=[
                     html.H4("Informações Gerais", style={'marginTop': '0', 'marginBottom': '10px', 'color': '#333'}),
                     html.Div(id='texto-info-grafo', children=initial_info_children, style={'fontSize': '14px', 'lineHeight': '1.6', 'color': '#444'}),
-                    html.Div(id='info-detalhes-elemento', style={
-                        'display': 'none', 'marginTop': '10px', 'paddingTop': '10px', 
-                        'borderTop': '1px solid #ccc', 'fontSize': '13px', 'lineHeight': '1.6', 'color': '#555'
-                    })
+                    html.Div(id='info-detalhes-elemento', style={'display': 'none', 'marginTop': '10px', 'paddingTop': '10px', 'borderTop': '1px solid #ccc', 'fontSize': '13px', 'lineHeight': '1.6', 'color': '#555'})
                 ]),
 
-                html.Div(id='card-execucao-algo', style={
-                    'display': 'none', 'position': 'absolute', 'top': '10px', 'right': '10px', 'zIndex': 50,
-                    'backgroundColor': 'rgba(255, 255, 255, 0.95)', 'border': '2px solid #4CAF50', 'borderRadius': '8px',
-                    'padding': '15px', 'boxShadow': '0 4px 15px rgba(0,0,0,0.2)', 'minWidth': '220px', 'maxWidth': '300px'
-                }, children=[
+                html.Div(id='card-execucao-algo', style={'display': 'none', 'position': 'absolute', 'top': '10px', 'right': '10px', 'zIndex': 50, 'backgroundColor': 'rgba(255, 255, 255, 0.95)', 'border': '2px solid #4CAF50', 'borderRadius': '8px', 'padding': '15px', 'boxShadow': '0 4px 15px rgba(0,0,0,0.2)', 'minWidth': '220px', 'maxWidth': '300px'}, children=[
                     html.H4("⚙️ Execução: Passo a Passo", style={'marginTop': '0', 'marginBottom': '10px', 'color': '#2E7D32'}),
                     html.Div(id='texto-narracao-algo', style={'fontSize': '14px', 'fontWeight': 'bold', 'color': '#333', 'marginBottom': '10px', 'fontStyle': 'italic'}),
                     html.Hr(style={'margin': '5px 0', 'border': '0.5px solid #ccc'}),
                     html.Div(id='texto-variaveis-algo', style={'fontSize': '13px', 'lineHeight': '1.6', 'color': '#444'})
                 ]),
 
-                html.Div(id='player-flutuante', className='player',style={'display': 'none'}, children=[
+                html.Div(id='player-flutuante', className='player', style={'display': 'none'}, children=[
                     html.Div(style={'display': 'flex', 'gap': '10px', 'marginBottom': '10px', 'width': '100%', 'justifyContent': 'space-between'}, children=[
                         html.Button(id='btn-stop-algo', style={'backgroundImage': 'url(assets/stop.png)'}),
                         html.Button(id='btn-prev-algo', style={'backgroundImage': 'url(assets/previous.png)'}),
@@ -292,81 +284,53 @@ def serve_layout():
                     html.Div(style={'fontSize': '12px', 'marginBottom': '15px', 'color': '#333', 'fontWeight': 'bold'}, children="Velocidade da Animação:"),
                     html.Div(style={'width': '95%', 'paddingBottom': '10px'}, children=[
                         dcc.Slider(
-                            id='slider-velocidade', 
-                            min=0, max=4, step=None, value=2, # O 2 continua sendo o "1x" no meio
-                            marks={
-                                0: {'label': '0.25x', 'style': {'fontWeight': 'bold'}},
-                                1: {'label': '0.5x', 'style': {'fontWeight': 'bold'}},
-                                2: {'label': '1x', 'style': {'fontWeight': 'bold'}},
-                                3: {'label': '1.5x', 'style': {'fontWeight': 'bold'}},
-                                4: {'label': '2x', 'style': {'fontWeight': 'bold'}}
-                            },
-                            # tooltip={"always_visible": False, "allow_direct_input": False},
+                            id='slider-velocidade', min=0, max=4, step=None, value=2, 
+                            marks={0: {'label': '0.25x', 'style': {'fontWeight': 'bold'}}, 1: {'label': '0.5x', 'style': {'fontWeight': 'bold'}}, 2: {'label': '1x', 'style': {'fontWeight': 'bold'}}, 3: {'label': '1.5x', 'style': {'fontWeight': 'bold'}}, 4: {'label': '2x', 'style': {'fontWeight': 'bold'}}}
                         )
                     ])
                 ]),
+                # A SETINHA SAIU DAQUI!
             ]),
 
-            # LADO DIREITO: SETA + PAINEL VERTICAL
-            html.Div(style={'display': 'flex', 'flexDirection': 'row', 'height': '80vh', 'position': 'absolute', 'right': '0', 'top': '12vh', 'padding': '6px'}, children=[
-
-                html.Div(style={'display': 'flex'}, className='btn-paineis', children=[
-                    html.Button('◀', id='toggle-painel-btn', n_clicks=0)
+            # LADO DIREITO: O PAINEL (Agora é um elemento flutuante que desliza)
+            html.Div(id='coluna-painel', style={
+                'position': 'absolute', 'right': '0', 'top': '0', 
+                'width': '300px', 'height': '85vh', 'padding': '0',
+                'transition': 'transform 0.3s ease', 'zIndex': 100,
+                'transform': 'translateX(0%)' # <--- INICIA TOTALMENTE FORA DA TELA
+            }, children=[
+                
+                html.Div(className='btn-paineis', style={'position': 'absolute', 'left': '-31px', 'top': '50%', 'transform': 'translateY(-50%)'}, children=[
+                    html.Button('◀', id='toggle-painel-btn', n_clicks=0) # <--- SETA APONTANDO PARA PUXAR
                 ]),
 
-                html.Div(id='conteudo-paineis', className='container-paineis', style={'display': 'none'}, children=[
-
+                # CONTEÚDO DO PAINEL
+                html.Div(id='conteudo-paineis', className='container-paineis', style={'width': '100%', 'height': '100%', 'overflowY': 'auto', 'boxSizing': 'border-box'}, children=[
                     html.Div(className='cartao-painel', children=[
                         html.H3("Vértice", style={'marginTop': '0', 'fontSize': '16px'}),
                         html.Button('Adicionar Vértice', id='add-vertex-button', style={'width': '100%'})
                     ]),
-
                     html.Div(className='cartao-painel', children=[
                         html.H3("Interação", style={'marginTop': '0', 'fontSize': '16px'}),
                         html.Button('Modo: Seleção', id='connect-mode-button', style={'width': '100%'}),
                         html.P(id='connect-mode-help-text', children="(Selecione elementos para deletar)", style={'fontSize': '12px', 'color': 'grey', 'marginBottom': '0'})
                     ]),
-
                     html.Div(className='cartao-painel', children=[
                         html.H3("Deletar", style={'marginTop': '0', 'fontSize': '16px'}),
                         html.Button('Deletar Selecionado', id='delete-selected-button', disabled=True, style={'width': '100%'})
                     ]),
-                    
-                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%', 'marginBottom': '10px'}, children=[
+                    html.Div(className='cartao-painel', children=[
                         html.H3("Configurações", style={'marginTop': '0', 'fontSize': '16px'}),
-                        dcc.RadioItems(
-                            id='toggle-direcao',
-                            options=[
-                                {'label': ' Não Orientado', 'value': 'nao_orientado'},
-                                {'label': ' Orientado', 'value': 'orientado'}
-                            ],
-                            value='nao_orientado',
-                            labelStyle={'display': 'block', 'textAlign': 'left', 'marginBottom': '5px'}
-                        ),
+                        dcc.RadioItems(id='toggle-direcao', options=[{'label': ' Não Orientado', 'value': 'nao_orientado'}, {'label': ' Orientado', 'value': 'orientado'}], value='nao_orientado', labelStyle={'display': 'block', 'textAlign': 'left', 'marginBottom': '5px'}),
                         html.Hr(style={'margin': '5px 0', 'border': '0.5px solid #ccc'}),
-                        dcc.RadioItems(
-                            id='toggle-peso',
-                            options=[
-                                {'label': ' Com Peso', 'value': 'com_peso'},
-                                {'label': ' Sem Peso', 'value': 'sem_peso'}
-                            ],
-                            value='com_peso',
-                            labelStyle={'display': 'block', 'textAlign': 'left'}
-                        )
+                        dcc.RadioItems(id='toggle-peso', options=[{'label': ' Com Peso', 'value': 'com_peso'}, {'label': ' Sem Peso', 'value': 'sem_peso'}], value='com_peso', labelStyle={'display': 'block', 'textAlign': 'left'})
                     ]),
-
-                    html.Div(className='cartao-painel', style={'margin': '0 auto', 'width': '89%', 'marginBottom': '10px'}, children=[
+                    html.Div(className='cartao-painel', children=[
                         html.H3("Algoritmos", style={'marginTop': '0', 'fontSize': '16px'}),
-                        
-                        dcc.Dropdown(id='dropdown-algo', options=[
-                            {'label': 'BFS (Busca em Largura)', 'value': 'bfs'},
-                            {'label': 'DFS (Busca em Profundidade)', 'value': 'dfs'}
-                        ], placeholder="Escolha o Algoritmo", style={'marginBottom': '5px', 'fontSize': '12px'}),
-                        
+                        dcc.Dropdown(id='dropdown-algo', options=[{'label': 'BFS (Busca em Largura)', 'value': 'bfs'}, {'label': 'DFS (Busca em Profundidade)', 'value': 'dfs'}], placeholder="Escolha o Algoritmo", style={'marginBottom': '5px', 'fontSize': '12px'}),
                         dcc.Dropdown(id='dropdown-source', placeholder="Vértice de Origem", style={'marginBottom': '5px', 'fontSize': '12px'}),
-                        
-                        html.Button('Carregar Algoritmo', id='btn-carregar-algo', style={'width': '100%', 'backgroundColor': '#2196F3', 'color': 'white', 'padding': '8px', 'borderRadius': '4px', 'border': 'none', 'cursor': 'pointer'}),
-                    ]),
+                        html.Button('Carregar Algoritmo', id='btn-carregar-algo', style={'width': '100%', 'backgroundColor': '#2196F3', 'color': 'white', 'padding': '8px', 'borderRadius': '4px', 'border': 'none', 'cursor': 'pointer'})
+                    ])
                 ])
             ])
         ])
@@ -413,12 +377,13 @@ def _update_node_positions(cyto_elements):
     State('modal-input-peso', 'value'),
     State('toggle-peso', 'value'),
     State('snapshots-store', 'data'),
+    State('modal-editar-peso', 'style'),
     prevent_initial_call=True
 )
 def main_callback(
     add_v, del_s, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao,
     sel_nodes, sel_edges, filename, cyto_elements, source_node_id, connect_mode_on,
-    aresta_edit_store_data, modal_input_value, toggle_peso, snaps
+    aresta_edit_store_data, modal_input_value, toggle_peso, snaps, modal_style
 ):
     global G
     ctx = dash.callback_context
@@ -482,6 +447,9 @@ def main_callback(
         if snaps:
             # Se o filme estiver rodando, ignora a tecla e avisa o usuário
             msg = html.Span("Bloqueado: Não é possível deletar durante a animação.", style={'color': 'red'})
+        elif modal_style and modal_style.get('display') == 'flex':
+            # --- NOVA TRAVA: Ignora o Delete/Backspace se o usuário estiver digitando o peso! ---
+            msg = dash.no_update
         elif not connect_mode_on and (sel_nodes or sel_edges):
             nodes_to_remove = {n['id'] for n in sel_nodes} if sel_nodes else set()
             edges_to_remove = [(e['source'], e['target']) for e in sel_edges] if sel_edges else []
@@ -826,23 +794,28 @@ def alternar_modal(edge_data, cancel_clicks, save_clicks, current_style, modo_pe
     return novo_estilo, dash.no_update, dash.no_update
     
 @app.callback(
-    Output('conteudo-paineis', 'style'),
+    Output('coluna-grafo', 'width'),
+    Output('coluna-painel', 'style'),
     Output('toggle-painel-btn', 'children'),
     Input('toggle-painel-btn', 'n_clicks'),
     prevent_initial_call=True
 )
 def alternar_painel_inteiro(n_clicks):
-    estilo_base = {
-        'flexDirection': 'column', 'width': '250px',
-        'backgroundColor': '#e0e0e0', 'borderRadius': '10px 0 0 10px', 'marginRight': '0px'
+    # O estilo base do painel flutuante
+    estilo_painel = {
+        'position': 'absolute', 'right': '0', 'top': '0', 
+        'width': '300px', 'height': '85vh', 'padding': '0',
+        'transition': 'transform 0.3s ease', 'zIndex': 100
     }
     
-    if n_clicks % 2 == 0:
-        estilo_base['display'] = 'none' 
-        return estilo_base, '◀'  
+    if n_clicks % 2 == 0: 
+        # FECHAR: Desliza o painel 100% da sua largura para a direita (fora da tela)
+        estilo_painel['transform'] = 'translateX(100%)'
+        return 12, estilo_painel, '◀'
     else:
-        estilo_base['display'] = 'flex' 
-        return estilo_base, '▶'
+        # ABRIR: Desliza o painel de volta para a posição original (0)
+        estilo_painel['transform'] = 'translateX(0%)'
+        return 12, estilo_painel, '▶'  
     
 @app.callback(
     Output('card-info-grafo', 'style'),
@@ -1129,7 +1102,8 @@ def atualizar_painel_raiox(current_frame, snaps, current_style):
 
 @app.callback(
     Output('player-flutuante', 'style'),
-    Output('conteudo-paineis', 'style', allow_duplicate=True),
+    Output('coluna-grafo', 'width', allow_duplicate=True),
+    Output('coluna-painel', 'style', allow_duplicate=True),
     Output('toggle-painel-btn', 'children', allow_duplicate=True),
     Output('btn-info-grafo', 'style'),
     Output('top-buttons-container', 'style'),
@@ -1137,48 +1111,52 @@ def atualizar_painel_raiox(current_frame, snaps, current_style):
     Output('card-info-grafo', 'style', allow_duplicate=True),
     Input('snapshots-store', 'data'),
     State('player-flutuante', 'style'),
-    State('conteudo-paineis', 'style'),
     State('btn-info-grafo', 'style'),
     State('top-buttons-container', 'style'),
     State('toggle-painel-btn', 'n_clicks'),
     State('card-info-grafo', 'style'),
     prevent_initial_call=True
-)#a
-def alternar_modo_execucao(snaps, style_player, style_painel, style_info, style_top, n_clicks_toggle, style_info_card):
+)
+def alternar_modo_execucao(snaps, style_player, style_info, style_top, n_clicks_toggle, style_info_card):
     s_player = style_player.copy() if style_player else {}
-    s_painel = style_painel.copy() if style_painel else {}
     s_info = style_info.copy() if style_info else {}
     style_info_card_copy = style_info_card.copy() if style_info_card else {}
     s_top = style_top.copy() if style_top else {'display': 'flex', 'justifyContent': 'start', 'transition': 'opacity 0.3s'}
     n_clicks = n_clicks_toggle if n_clicks_toggle is not None else 0
 
+    estilo_painel = {
+        'position': 'absolute', 'right': '0', 'top': '0', 
+        'width': '300px', 'height': '85vh', 'padding': '0', 'zIndex': 100
+    }
+
     if snaps:
-        # MODO EXECUÇÃO
+        # MODO EXECUÇÃO: Player aparece, força fechamento do painel pra fora da tela
         s_player['display'] = 'flex'
-        s_painel['display'] = 'none' 
+        estilo_painel['transform'] = 'translateX(100%)' 
         seta = '◀'
-        # s_info['display'] = 'none'
         style_info_card_copy['display'] = 'none'
+        s_info['display'] = 'none'
         s_top['pointerEvents'] = 'none' 
         s_top['opacity'] = '0.3'
-        travar_painel = True # <--- Trava o botão para não abrir
+        travar_painel = True
     else:
         # MODO NORMAL
         s_player['display'] = 'none'
-        # s_info['display'] = 'block'
         style_info_card_copy['display'] = 'none'
+        s_info['display'] = 'block'
         s_top['pointerEvents'] = 'auto'
         s_top['opacity'] = '1'
-        travar_painel = False # <--- Destrava o botão
+        travar_painel = False
         
+        # Respeita o clique anterior
         if n_clicks % 2 == 0:
-            s_painel['display'] = 'none'
+            estilo_painel['transform'] = 'translateX(100%)'
             seta = '◀'
         else:
-            s_painel['display'] = 'flex'
+            estilo_painel['display'] = 'block'
             seta = '▶'
         
-    return s_player, s_painel, seta, s_info, s_top, travar_painel, style_info_card_copy
+    return s_player, 12, estilo_painel, seta, s_info, s_top, travar_painel, style_info_card_copy
 
 # =============================================================================
 # Callbacks Javascript (Lado do Cliente)

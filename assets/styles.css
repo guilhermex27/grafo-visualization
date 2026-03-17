@@ -37,28 +37,25 @@ body {
     width: 89%;
 }
 .btn-paineis {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 100;
     display: flex;
-    justify-content: center;
-    align-items: center;
 }
-/* , style={
-                        'background': '#e0e0e0', 'color': 'black', 'border': 'none',
-                        'fontSize': '22px', 'cursor': 'pointer', 'padding': '0', 'height': '10%','borderRadius': '10px 0 0 10px','width': '31px'
-                    } */
 .btn-paineis button {
     background: #e0e0e0;
-    align-items: center;
     color: black;
-    border: none;
+    border: 1px solid #ccc;
+    border-right: none;
     font-size: 22px;
-    z-index: 5;
     cursor: pointer;
-    padding: 0; 
-    height: 10%;
+    padding: 15px 5px; 
     border-radius: 10px 0 0 10px;
     width: 31px;
+    box-shadow: -2px 0 5px rgba(0,0,0,0.1);
 }
-
 .btn-paineis button:hover {
     background-color: #d5d5d5;
 }
@@ -114,6 +111,7 @@ button:disabled {
     background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
+    border-radius: 50%;
     position: absolute;
     top: 10px;
     left: 10px;
