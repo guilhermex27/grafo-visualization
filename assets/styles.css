@@ -26,7 +26,7 @@ body {
     text-align: center;
 }
 
-.cartao-painel {
+/* .cartao-painel {
     background-color: white;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -35,7 +35,7 @@ body {
     text-align: center;
     margin: 0 auto; 
     width: 89%;
-}
+} */
 .btn-paineis {
     position: absolute;
     right: 0;
@@ -60,7 +60,7 @@ body {
     background-color: #d5d5d5;
 }
 
-.container-paineis {
+/* .container-paineis {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -73,7 +73,7 @@ body {
     border-radius: 10px;
     margin-right: 0px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
+} */
 
 button {
     background-color: #4CAF50; /* Verde */
@@ -95,70 +95,75 @@ button:disabled {
     cursor: not-allowed;
 }
 
-.image-container {
-    position: relative;
-    text-align: center;
-    vertical-align: middle;
-    width: 15vh;
+
+
+/* Container que agrupa o botão e o card para não quebrarem em telas diferentes */
+.info-container {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Alinha o card à esquerda do botão */
 }
 
 .info {
     display: block;
 }
 
-.info button{
+.info button {
     background-image: url(info.png);
     background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
     border-radius: 50%;
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    width: 55px;
-    height: 55px; 
-    z-index: 50;
-    background-color: #fff;
-    padding: 5px 10px; 
+    width: 50px; 
+    height: 50px; 
+    background-color: transparent;
+    border: none;
+    padding: 0; 
     cursor: pointer; 
+    transition: transform 0.2s ease;
 }
 
 .info button:hover {
-    background-color: #c8cac8;
+    transform: scale(1.05);
 }
 
 .card-info {
-    position: absolute;
-    top: 6vh;
-    left: 1vh;
-    z-index: 50;
-    background-color: rgba(255, 255, 255, 0.95);
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    padding: 15px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    min-width: 160px;
+    margin-top: 10px;
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border-radius: 8px !important;
+    min-width: 220px;
+}
+
+.image-container {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    margin-left: 10px; /* Dá um espacinho entre os botões */
 }
 
 .image-container button {
-    background-image: url(home.png);
     background-size: contain;
-    background-position: right;
+    background-position: center;
     background-repeat: no-repeat;
-    position: absolute;
-    z-index: 1;
-    top: 35%;
-    left: 50%;
-    width: 55px;
-    height: 55px;
+    background-color: transparent;
+    width: 45px;
+    height: 45px;
+    border: none;
     padding: 0;
-    margin: -15px 0 0 -30px;
-    border: 0 none;
-    background-color: #f4f4f9;
+    margin: 0;
+    cursor: pointer;
+    transition: transform 0.2s ease, filter 0.2s ease;
 }
 
-.image-container button:hover{
-    background-color: #c8cac8;
+.image-container button:hover {
+    transform: scale(1.1); /* Faz o botão crescer levemente em vez de mudar de cor */
+    filter: brightness(0.8);
 }
 
 .player {
