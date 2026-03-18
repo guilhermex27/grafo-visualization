@@ -1,4 +1,4 @@
-# Visualizador de Grafos usando NetworkX e Flask
+# Visualizador de Grafos usando NetworkX e Dash
 
 ocultar menu
 separar menu em dados do grafo, controles e algoritmos
@@ -59,3 +59,10 @@ Um grafo sem laços nem arestas paralelas é chamado de grafo simples.
 Add trava no modo conexao(fique no modo de seleçao), delete de arestas e ediçao de arestas
 Mudar o estilo da hud do player
 Add trava do painel de gerenciamento
+
+
+adicionar classificação de grafo irregular
+opção de excluir tudo
+melhorar lógica de interação com o grafo, add vert, modo de conexao deleção, revisar os funcionamentos
+
+durante a execução, armazenar as posições dos vertices, mesmo com f5

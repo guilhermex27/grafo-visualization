@@ -211,10 +211,12 @@ def serve_layout():
     tipo_dir_init = "Orientado" if G.is_directed() else "Não Orientado"
     tipo_peso_init = "Ponderado"
     propriedades_init = obter_propriedades_grafo(G)
+    graus = sum([d for n, d in G.degree()])
 
     initial_info_children = [
         html.B("Vértices: "), f"{G.number_of_nodes()}", html.Br(),
         html.B("Arestas: "), f"{G.number_of_edges()}", html.Br(),
+        html.B("Soma dos Graus: "), f"{graus}", html.Br(),
         html.B("Direção: "), tipo_dir_init, html.Br(),
         html.B("Peso: "), tipo_peso_init, html.Br(),
         html.B("Propriedades: "), propriedades_init
@@ -259,7 +261,7 @@ def serve_layout():
                     html.Button(
                         id='home-button', style={'backgroundImage': 'url(assets/home.png)'})
                 ]),
-                html.Div(className='image-container', style={'transform': 'translateY(5px)'}, children=[
+                html.Div(className='image-container', style={'transform': 'translateY(7px)'}, children=[
                     html.A(id="download-link", href="/download/graph.txt", children=[
                         html.Button(
                             style={'backgroundImage': 'url(assets/download.png)'})
@@ -279,7 +281,7 @@ def serve_layout():
         dbc.Row(style={'margin': '0', 'position': 'relative', 'overflowX': 'hidden'}, children=[
 
             # LADO ESQUERDO: O GRAFO (Agora sempre fixo em 12 colunas, nunca mais muda de tamanho!)
-            dbc.Col(id='coluna-grafo', width=12, style={'position': 'relative', 'border': '1px solid #ccc', 'borderRadius': '8px', 'backgroundColor': '#fff', 'height': '85vh', 'padding': '0'}, children=[
+            dbc.Col(id='coluna-grafo', width=12, style={'position': 'relative', 'border': '1px solid #ccc', 'backgroundColor': '#fff', 'height': '85vh', 'padding': '0'}, children=[
                 cyto.Cytoscape(
                     id='cytoscape-graph', elements=initial_elements, stylesheet=BASE_STYLESHEET,
                     style={'width': '100%', 'height': '100%'},
@@ -305,43 +307,56 @@ def serve_layout():
                                 "Informações Gerais", className="fw-bold mb-3 text-dark", style={'marginTop': '0'}),
 
                             html.Div(id='texto-info-grafo', children=initial_info_children,
-                                     className="text-secondary", style={'fontSize': '14px', 'lineHeight': '1.6'}),
+                                     className="fw mb-3 text-dark", style={'fontSize': '14px', 'lineHeight': '1.6', 'color': '#000000'}),
 
-                            html.Div(id='info-detalhes-elemento', className="mt-3 pt-3 border-top text-muted", style={
-                                     'display': 'none', 'fontSize': '14px', 'lineHeight': '1.6'})
+                            html.Div(id='info-detalhes-elemento', className="mt-3 pt-3 border-top text-dark", style={
+                                     'display': 'none', 'fontSize': '14px', 'lineHeight': '1.6', 'color': '#080808'})
                         ])
                     ])
                 ]),
 
-                html.Div(id='card-execucao-algo', style={'display': 'none', 'position': 'absolute', 'top': '10px', 'right': '10px', 'zIndex': 50, 'backgroundColor': 'rgba(255, 255, 255, 0.95)', 'border': '2px solid #4CAF50', 'borderRadius': '8px', 'padding': '15px', 'boxShadow': '0 4px 15px rgba(0,0,0,0.2)', 'minWidth': '220px', 'maxWidth': '300px'}, children=[
-                    html.H4("⚙️ Execução: Passo a Passo", style={
-                            'marginTop': '0', 'marginBottom': '10px', 'color': '#2E7D32'}),
-                    html.Div(id='texto-narracao-algo', style={
-                             'fontSize': '14px', 'fontWeight': 'bold', 'color': '#333', 'marginBottom': '10px', 'fontStyle': 'italic'}),
-                    html.Hr(style={'margin': '5px 0',
-                            'border': '0.5px solid #ccc'}),
-                    html.Div(id='texto-variaveis-algo',
-                             style={'fontSize': '13px', 'lineHeight': '1.6', 'color': '#444'})
+                dbc.Card(id='card-execucao-algo', className="card shadow border-success p-0", style={
+                    'display': 'none', 'position': 'absolute', 'top': '10px', 'right': '10px', 'zIndex': 50,
+                    'backgroundColor': 'rgba(255, 255, 255, 0.95)', 'minWidth': '280px', 'maxWidth': '320px',
+                    'borderWidth': '2px', 'borderRadius': '8px', 'overflow': 'hidden'
+                }, children=[
+                    dbc.CardHeader(html.H6(id='titulo-card-algo', children="⚙️ Execução",
+                                   className="fw-bold m-0 text-center", style={'color': "#080808"})),
+
+                    dbc.CardBody(className="p-3", children=[
+                        html.Div(id='texto-narracao-algo', className="text-dark fw-bold mb-3 text-center",
+                                 style={'fontSize': '14px', 'fontStyle': 'italic'}),
+
+                        html.Div(id='texto-variaveis-algo')
+                    ])
                 ]),
 
-                html.Div(id='player-flutuante', className='player', style={'display': 'none'}, children=[
-                    html.Div(style={'display': 'flex', 'gap': '10px', 'marginBottom': '10px', 'width': '100%', 'justifyContent': 'space-between'}, children=[
+                html.Div(id='player-flutuante', className='player card flex-column shadow-lg p-3 border-0', style={'display': 'none', 'backgroundColor': 'rgba(255, 255, 255, 0.95)'}, children=[
+
+                    html.Div(className='d-flex justify-content-around mb-3 w-100 px-3', children=[
                         html.Button(
-                            id='btn-stop-algo', style={'backgroundImage': 'url(assets/stop.png)'}),
+                            id='btn-stop-algo', style={'backgroundImage': 'url(assets/stop.svg)'}),
                         html.Button(
-                            id='btn-prev-algo', style={'backgroundImage': 'url(assets/previous.png)'}),
+                            id='btn-prev-algo', style={'backgroundImage': 'url(assets/previous.svg)'}),
                         html.Button(
-                            id='btn-play-algo', style={'backgroundImage': 'url(assets/play.png)'}),
+                            id='btn-play-algo', style={'backgroundImage': 'url(assets/play.svg)'}),
                         html.Button(
-                            id='btn-step-algo', style={'backgroundImage': 'url(assets/next.png)'}),
+                            id='btn-step-algo', style={'backgroundImage': 'url(assets/next.svg)'}),
                     ]),
-                    html.Div(style={'fontSize': '12px', 'marginBottom': '15px', 'color': '#333',
-                             'fontWeight': 'bold'}, children="Velocidade da Animação:"),
-                    html.Div(style={'width': '95%', 'paddingBottom': '10px'}, children=[
+
+                    html.Div(className='text-center fw-bold text-dark mb-2',
+                             style={'fontSize': '12px'}, children="Velocidade da Animação:"),
+
+                    html.Div(className='w-100 px-2', children=[
                         dcc.Slider(
                             id='slider-velocidade', min=0, max=4, step=None, value=2,
-                            marks={0: {'label': '0.25x', 'style': {'fontWeight': 'bold'}}, 1: {'label': '0.5x', 'style': {'fontWeight': 'bold'}}, 2: {'label': '1x', 'style': {
-                                'fontWeight': 'bold'}}, 3: {'label': '1.5x', 'style': {'fontWeight': 'bold'}}, 4: {'label': '2x', 'style': {'fontWeight': 'bold'}}}
+                            marks={
+                                0: {'label': '0.25x', 'style': {'fontWeight': 'bold'}},
+                                1: {'label': '0.5x', 'style': {'fontWeight': 'bold'}},
+                                2: {'label': '1x', 'style': {'fontWeight': 'bold'}},
+                                3: {'label': '1.5x', 'style': {'fontWeight': 'bold'}},
+                                4: {'label': '2x', 'style': {'fontWeight': 'bold'}}
+                            }
                         )
                     ])
                 ]),
@@ -361,7 +376,7 @@ def serve_layout():
 
                 # CONTEÚDO DO PAINEL
                 # Usamos d-flex, flex-column e gap-3 para dar o espaçamento simétrico perfeito
-                html.Div(id='conteudo-paineis', className='d-flex flex-column gap-3 p-3 h-100', style={'backgroundColor': '#f8f9fa', 'overflowY': 'auto', 'boxSizing': 'border-box', 'borderLeft': '1px solid #ddd', 'borderRadius': '10px 0 0 10px'}, children=[
+                html.Div(id='conteudo-paineis', className='d-flex flex-column gap-3 p-3 h-100', style={'backgroundColor': '#f4f4f9', 'overflowY': 'auto', 'boxSizing': 'border-box', 'borderLeft': '1px solid #ccc'}, children=[
 
                     # CARTÃO 1: Vértice
                     html.Div(className='card shadow-sm border-0 p-3', children=[
@@ -412,8 +427,8 @@ def serve_layout():
                 ])
             ])
         ]),
-        html.Div(id='action-output-message', style={'position': 'absolute', 'bottom': '5px',
-                                                    'width': '40%', 'left': '30%', 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold'}),
+        html.Div(id='action-output-message', style={'position': 'fixed', 'bottom': '5px', 'left': '50%', 'transform': 'translateX(-50%)',
+                 'zIndex': 1050, 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold', 'backgroundColor': 'transparent'}),
     ])
 
 
@@ -746,6 +761,8 @@ def main_callback(
     info_texto = [
         html.B("Vértices: "), f"{G.number_of_nodes()}", html.Br(),
         html.B("Arestas: "), f"{G.number_of_edges()}", html.Br(),
+        html.B(
+            "Soma dos Graus: "), f"{sum([d for n, d in G.degree()])}", html.Br(),
         html.B("Direção: "), tipo_dir, html.Br(),
         html.B("Peso: "), tipo_peso, html.Br(),
         html.B("Propriedades: "), propriedades_atuais
@@ -818,7 +835,7 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
             if cor == "Cinza":
                 stylesheet.append({
                     'selector': f'node[id = "{no_id}"]',
-                    'style': {'background-color': '#999998', 'border-width': 4, 'border-color': '#FFC107', 'color': '#333'}
+                    'style': {'background-color': '#999998', 'border-width': 4, 'border-color': "#858582", 'color': '#333'}
                 })
             elif cor == "Preto":
                 stylesheet.append({
@@ -1025,7 +1042,7 @@ def exibir_detalhes_elemento(sel_nodes, sel_edges, direcao, current_style, modo_
             conteudo.extend([
                 html.Span(f"Grau: {deg}"), html.Br(),
                 html.Span(
-                    f"Adjacentes: {', '.join(vizinhos) if vizinhos else 'Nenhum'}"), html.Br()
+                    f"Vizinho(s): {', '.join(vizinhos) if vizinhos else 'Nenhum'}"), html.Br()
             ])
 
             # Classificação Não Orientada
@@ -1194,51 +1211,123 @@ def controlar_player(btn_play, btn_step, btn_prev, n_ints, velocidade_idx, is_pl
 
 @app.callback(
     Output('card-execucao-algo', 'style'),
+    Output('titulo-card-algo', 'children'),  # <--- NOVA SAÍDA (TÍTULO)
     Output('texto-narracao-algo', 'children'),
     Output('texto-variaveis-algo', 'children'),
     Input('current-frame-store', 'data'),
     State('snapshots-store', 'data'),
     State('card-execucao-algo', 'style'),
+    # <--- NOVO STATE (SABER QUAL ALGORITMO É)
+    State('dropdown-algo', 'value'),
     prevent_initial_call=True
 )
-def atualizar_painel_raiox(current_frame, snaps, current_style):
-    novo_estilo = current_style.copy()
+def atualizar_painel_raiox(current_frame, snaps, current_style, algo):
+    novo_estilo = current_style.copy() if current_style else {}
 
-    if not snaps or current_frame is None or current_frame == 0 and not snaps:
+    if not snaps or current_frame is None or (current_frame == 0 and not snaps):
         novo_estilo['display'] = 'none'
-        return novo_estilo, "", ""
+        return novo_estilo, dash.no_update, "", []
 
     novo_estilo['display'] = 'block'
     quadro = snaps[current_frame]
     narracao = quadro.get('descricao', '')
 
-    # Formata as variáveis matemáticas (pi, d, f, Q, etc)
-    linhas_vars = []
+    # 1. TÍTULO E VARIÁVEIS GLOBAIS
+    titulo = "BFS (Largura)" if algo == 'bfs' else "DFS (Profundidade)"
+    elementos_globais = []
 
-    # Se for BFS (Tem fila Q)
-    if 'Q' in quadro:
-        linhas_vars.append(html.B(f"Fila Q: {quadro['Q']}"))
-        linhas_vars.append(html.Br())
+    if algo == 'bfs' and 'Q' in quadro:
+        elementos_globais.append(html.Div([
+            html.B("Fila Q: ",  style={'color': "#080808"}),
+            html.Span(f"{quadro['Q']}", className="fw-bold")
+        ], className="mb-2 text-center", style={'fontSize': '14px'}))
 
-    # Se for DFS (Tem tempo)
-    if 'tempo' in quadro:
-        linhas_vars.append(html.B(f"Tempo atual: {quadro['tempo']}"))
-        linhas_vars.append(html.Br())
+    if algo == 'dfs' and 'tempo' in quadro:
+        elementos_globais.append(html.Div([
+            html.B("Tempo: ",  style={'color': "#080808"}),
+            html.Span(f"{quadro['tempo']}", className="fw-bold")
+        ], className="mb-2 text-center", style={'fontSize': '14px'}))
 
-    # Variáveis gerais (d e pi)
+    # 2. CONSTRUÇÃO DA TABELA DE VÉRTICES (ESTADOS)
+    cores_dict = quadro.get('c', {})
     d_dict = quadro.get('d', {})
     pi_dict = quadro.get('pi', {})
+    f_dict = quadro.get('f', {})  # Apenas DFS
 
-    linhas_vars.append(html.Span("Distância/Tempo Descoberta (d): "))
-    linhas_vars.append(html.Br())
-    linhas_vars.append(html.Span(f"{d_dict}", style={'fontSize': '12px'}))
-    linhas_vars.append(html.Br())
+    # Ordena os vértices numericamente se forem números, senão alfabeticamente
+    vertices = sorted(list(cores_dict.keys()),
+                      key=lambda x: int(x) if str(x).isdigit() else x)
 
-    linhas_vars.append(html.Span("Antecessores (π): "))
-    linhas_vars.append(html.Br())
-    linhas_vars.append(html.Span(f"{pi_dict}", style={'fontSize': '12px'}))
+    # Monta o Cabeçalho da Tabela
+    thead_cols = [
+        html.Th("V", title="Vértice", className="text-center"),
+        html.Th("Cor", className="text-center")
+    ]
+    if algo == 'bfs':
+        thead_cols.extend([
+            html.Th("d", title="Distância", className="text-center"),
+            html.Th("π", title="Predecessor", className="text-center")
+        ])
+    else:
+        thead_cols.extend([
+            html.Th("d", title="Descoberta", className="text-center"),
+            html.Th("f", title="Finalização", className="text-center"),
+            html.Th("π", title="Predecessor", className="text-center")
+        ])
 
-    return novo_estilo, narracao, linhas_vars
+    # Monta o Corpo da Tabela
+    tbody_rows = []
+    for v in vertices:
+        cor_nome = cores_dict.get(v, "Branco")
+        # Transforma o texto da cor num emoji bonitinho para economizar espaço
+        cor_badge = "⚪" if cor_nome == "Branco" else (
+            "🔘" if cor_nome == "Cinza" else "⚫")
+
+        pi_v = pi_dict.get(v, "-")
+        if pi_v is None:
+            pi_v = "-"
+
+        d_v = d_dict.get(v, "-")
+        if d_v is None or d_v == float('inf'):
+            d_v = "∞"
+
+        row_cols = [
+            html.Td(v, className="fw-bold text-center align-middle"),
+            html.Td(cor_badge, className="text-center align-middle")
+        ]
+
+        if algo == 'bfs':
+            row_cols.extend([
+                html.Td(str(d_v), className="text-center align-middle"),
+                html.Td(str(pi_v), className="text-center align-middle")
+            ])
+        else:
+            f_v = f_dict.get(v, "-") if f_dict else "-"
+            row_cols.extend([
+                html.Td(
+                    str(d_v), className="text-center align-middle text-success fw-bold"),
+                html.Td(
+                    str(f_v), className="text-center align-middle text-danger fw-bold"),
+                html.Td(str(pi_v), className="text-center align-middle")
+            ])
+
+        tbody_rows.append(html.Tr(row_cols))
+
+    # Junta tudo num container com scroll (caso o grafo tenha muitos vértices)
+    tabela_completa = html.Div(
+        style={'maxHeight': '250px', 'overflowY': 'auto'},
+        children=[
+            html.Table(className="table table-sm table-bordered table-striped mb-0", style={'fontSize': '12px'}, children=[
+                html.Thead(html.Tr(thead_cols), className="table-light"),
+                html.Tbody(tbody_rows)
+            ])
+        ]
+    )
+
+    # O conteúdo final da área de variáveis é a junção das globais com a tabela
+    conteudo_final = elementos_globais + [tabela_completa]
+
+    return novo_estilo, titulo, narracao, conteudo_final
 
 
 @app.callback(
@@ -1279,7 +1368,7 @@ def alternar_modo_execucao(snaps, style_player, style_info, style_top, n_clicks_
         # style_info_card_copy['display'] = 'none'
         # s_info['display'] = 'none'
         s_top['pointerEvents'] = 'none'
-        s_top['opacity'] = '0.3'
+        s_top['opacity'] = '0.5'
         travar_painel = True
     else:
         # MODO NORMAL
@@ -1299,6 +1388,26 @@ def alternar_modo_execucao(snaps, style_player, style_info, style_top, n_clicks_
             seta = '▶'
 
     return s_player, 12, estilo_painel, seta, s_info, s_top, travar_painel, style_info_card_copy
+
+
+@app.callback(
+    Output('btn-play-algo', 'style'),
+    Input('is-playing-store', 'data'),
+    State('btn-play-algo', 'style'),
+    prevent_initial_call=True
+)
+def atualizar_icone_play(is_playing, estilo_atual):
+    # Copia o estilo atual para não apagar nada que o Bootstrap ou CSS precisem
+    novo_estilo = estilo_atual.copy() if estilo_atual else {}
+
+    if is_playing:
+        # Se a fita está rodando, mostra o botão de Pause
+        novo_estilo['backgroundImage'] = 'url(assets/pause.svg)'
+    else:
+        # Se a fita está pausada ou parada, mostra o botão de Play
+        novo_estilo['backgroundImage'] = 'url(assets/play.svg)'
+
+    return novo_estilo
 
 # =============================================================================
 # Callbacks Javascript (Lado do Cliente)
