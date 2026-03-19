@@ -36,7 +36,7 @@ BASE_STYLESHEET = [
     {
         'selector': 'node',
         'style': {
-            'label': 'data(id)',
+            'label': 'data(label)',
             'text-valign': 'center', 'color': '#333',
             'text-outline-color': '#333', 'text-outline-width': '1px',
             'background-color': 'white', 'border-width': 4, 'border-color': '#999998',
@@ -51,11 +51,10 @@ BASE_STYLESHEET = [
 
             'text-background-color': '#ffffff',
             'text-background-opacity': 1,
-            'text-background-shape': 'roundcircle',
+            'text-background-shape': 'roundrectangle',
             'text-background-padding': '5px',
             'text-wrap': 'wrap',
             'text-z-index': 10,
-            # 'text-rotation': 'autorotate',
             'text-outline-color': '#333', 'text-outline-width': '0.4px',
             'transition-property': 'line-color, width, target-arrow-color',
             'transition-duration': '0.2s',
@@ -78,7 +77,10 @@ BASE_STYLESHEET = [
 def nx_to_cytoscape(graph_obj):
     cy_elements = []
     for node, attrs in graph_obj.nodes(data=True):
-        cy_node = {'data': {'id': str(node), 'label': str(node)}}
+
+        label_atual = attrs.get('label', str(node))
+        cy_node = {'data': {'id': str(node), 'label': str(label_atual)}}
+
         if 'position' in attrs:
             cy_node['position'] = attrs['position']
         cy_elements.append(cy_node)
@@ -240,13 +242,14 @@ def serve_layout():
         dcc.Store(id='connect-mode-store', data=False),
         dcc.Store(id='aresta-edit-store', data=None),
         dcc.Store(id='edge-edit-store', data=None),
+        dcc.Store(id='vertex-edit-store', data=None),
+        dcc.Store(id='vertice-edit-store', data=None),
         dcc.Store(id='snapshots-store', data=None),
         dcc.Store(id='current-frame-store', data=0),
         dcc.Store(id='is-playing-store', data=False),
         dcc.Interval(id='animation-interval', interval=1000,
                      n_intervals=0, disabled=True),
 
-        # MODAL ORIGINAL MANTIDO
         dbc.Modal([
             dbc.ModalHeader(dbc.ModalTitle("Editar Peso da Aresta")),
             dbc.ModalBody([
@@ -259,6 +262,19 @@ def serve_layout():
                 dbc.Button('Salvar', id='btn-salvar-peso', color="success")
             ])
         ], id='modal-editar-peso', is_open=False, centered=True),
+
+        dbc.Modal([
+            dbc.ModalHeader(dbc.ModalTitle("Editar Rótulo do Vértice")),
+            dbc.ModalBody([
+                dbc.Input(id='modal-input-rotulo', type='number',
+                          placeholder="Digite o novo rótulo", className="mb-2")
+            ]),
+            dbc.ModalFooter([
+                dbc.Button('Cancelar', id='btn-cancelar-rotulo',
+                           color="danger", className="me-2"),
+                dbc.Button('Salvar', id='btn-salvar-rotulo', color="success")
+            ])
+        ], id='modal-editar-rotulo', is_open=False, centered=True),
 
         # --- LINHA 1: CABEÇALHO ---
         dbc.Row(id='top-buttons-container', className="align-items-center mb-3 mt-2", style={'transition': 'opacity 0.3s'}, children=[
@@ -494,6 +510,7 @@ def _update_node_positions(cyto_elements):
     Input('btn-salvar-peso', 'n_clicks'),
     Input('btn-hidden-center', 'n_clicks'),
     Input('toggle-direcao', 'value'),
+    Input('btn-salvar-rotulo', 'n_clicks'),
     State('cytoscape-graph', 'selectedNodeData'),
     State('cytoscape-graph', 'selectedEdgeData'),
     State('upload-data', 'filename'),
@@ -505,12 +522,15 @@ def _update_node_positions(cyto_elements):
     State('toggle-peso', 'value'),
     State('snapshots-store', 'data'),
     State('modal-editar-peso', 'is_open'),
+    State('modal-editar-rotulo', 'is_open'),
+    State('modal-input-rotulo', 'value'),
+    State('vertex-edit-store', 'data'),
     prevent_initial_call=True
 )
 def main_callback(
-    add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao,
+    add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao, btn_salvar_rotulo,
     sel_nodes, sel_edges, filename, cyto_elements, source_node_id, connect_mode_on,
-    aresta_edit_store_data, modal_input_value, toggle_peso, snaps, modal_is_open
+    aresta_edit_store_data, modal_input_value, toggle_peso, snaps, modal_is_open, modal_rotulo_is_open, modal_input_rotulo, vertex_edit_store_data
 ):
     global G
     ctx = dash.callback_context
@@ -532,7 +552,7 @@ def main_callback(
         if snaps:
             msg = html.Span(
                 "Bloqueado: Não é possível adicionar vértices durante a animação.", style={'color': 'red'})
-        elif modal_is_open:
+        elif modal_is_open or modal_rotulo_is_open:
             msg = dash.no_update
         # ---------------------------
         else:
@@ -598,10 +618,9 @@ def main_callback(
 
     elif prop_id == 'delete-selected-button.n_clicks':
         if snaps:
-            # Se o filme estiver rodando, ignora a tecla e avisa o usuário
             msg = html.Span(
                 "Bloqueado: Não é possível deletar durante a animação.", style={'color': 'red'})
-        elif modal_is_open:
+        elif modal_is_open or modal_rotulo_is_open:
             msg = dash.no_update
         elif not connect_mode_on and (sel_nodes or sel_edges):
             nodes_to_remove = {n['id']
@@ -620,7 +639,7 @@ def main_callback(
         if snaps:
             msg = html.Span(
                 "Bloqueado: Não é possível limpar a tela durante a animação.", style={'color': 'red'})
-        elif modal_is_open:
+        elif modal_is_open or modal_rotulo_is_open:
             msg = dash.no_update
 
         # --- A NOVA TRAVA CONTRA O CONGELAMENTO ---
@@ -653,6 +672,22 @@ def main_callback(
                 msg = html.Span(
                     "Erro: O peso deve ser um número inteiro.", style={'color': 'red'})
 
+    elif prop_id == 'btn-salvar-rotulo.n_clicks':
+        if vertex_edit_store_data and modal_input_rotulo is not None:
+            node_id = vertex_edit_store_data['id']
+            novo_rotulo = str(modal_input_rotulo).strip()
+
+            try:
+                novo_rotulo_int = int(novo_rotulo)
+                if G.has_node(node_id) and novo_rotulo_int >= 0:
+                    G.nodes[node_id]['label'] = novo_rotulo
+                    msg = html.Span(f"Rótulo do vértice atualizado para '{novo_rotulo}'", style={
+                                    'color': 'green'})
+                    graph_changed = True
+            except ValueError:
+                msg = html.Span(
+                    "Erro: O rótulo deve ser um número inteiro positivo.", style={'color': 'red'})
+
     elif prop_id == 'upload-data.contents':
         if upload_contents:
             _, content_string = upload_contents.split(',')
@@ -665,9 +700,9 @@ def main_callback(
             arquivo_valido = True
             msg_erro = ""
             arestas_vistas = set()
-            vertices_unicos = set()  # <--- Rastreia os vértices
+            vertices_unicos = set()
             tem_ida_e_volta = False
-            qtd_arestas_reais = 0   # <--- Conta as linhas de arestas
+            qtd_arestas_reais = 0
             v_header = 0
             e_header = 0
 
@@ -849,11 +884,12 @@ def main_callback(
     State('connect-mode-store', 'data'),
     State('snapshots-store', 'data'),       # Trava do Player
     State('modal-editar-peso', 'is_open'),  # Trava do Modal
+    State('modal-editar-rotulo', 'is_open'),  # Trava do Modal
     prevent_initial_call=True
 )
-def toggle_connect_mode(n_clicks, is_on, snaps, modal_is_open):
+def toggle_connect_mode(n_clicks, is_on, snaps, modal_is_open, modal_editar_rotulo_is_open):
     # Trava de segurança contra atalhos de teclado indevidos
-    if snaps or modal_is_open:
+    if snaps or modal_is_open or modal_editar_rotulo_is_open:
         raise PreventUpdate
 
     new_mode_is_on = not is_on
@@ -1005,6 +1041,36 @@ def alternar_modal(edge_data, cancel_clicks, save_clicks, modo_peso, snaps):
         if modo_peso == 'sem_peso':
             return False, dash.no_update, dash.no_update
         return True, edge_data.get('label', ''), edge_data
+
+    return False, dash.no_update, dash.no_update
+
+
+@app.callback(
+    Output('modal-editar-rotulo', 'is_open'),
+    Output('modal-input-rotulo', 'value'),
+    Output('vertex-edit-store', 'data'),
+    Input('vertice-edit-store', 'data'),
+    Input('btn-cancelar-rotulo', 'n_clicks'),
+    Input('btn-salvar-rotulo', 'n_clicks'),
+    State('snapshots-store', 'data'),
+    State('connect-mode-store', 'data'),
+    prevent_initial_call=True
+)
+def alternar_modal_rotulo(vertex_data, cancel_clicks, save_clicks, snaps, connect_mode_on):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+    prop_id = ctx.triggered[0]['prop_id']
+
+    # Fecha se apertou cancelar, salvar, ou se o algoritmo tá rodando
+    if prop_id in ['btn-cancelar-rotulo.n_clicks', 'btn-salvar-rotulo.n_clicks'] or snaps:
+        return False, dash.no_update, dash.no_update
+
+    if connect_mode_on:
+        return False, dash.no_update, dash.no_update
+
+    if prop_id == 'vertice-edit-store.data' and vertex_data:
+        return True, vertex_data.get('label', ''), vertex_data
 
     return False, dash.no_update, dash.no_update
 
@@ -1513,6 +1579,14 @@ app.clientside_callback(
     dash.ClientsideFunction(namespace='grafos', function_name='editarAresta'),
     Output('edge-edit-store', 'data'),
     Input('cytoscape-graph', 'tapEdgeData'),
+    prevent_initial_call=True
+)
+
+app.clientside_callback(
+    dash.ClientsideFunction(
+        namespace='grafos', function_name='editarRotuloVertice'),
+    Output('vertice-edit-store', 'data'),
+    Input('cytoscape-graph', 'tapNodeData'),
     prevent_initial_call=True
 )
 

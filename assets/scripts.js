@@ -29,6 +29,30 @@ window.dash_clientside.grafos = {
         return window.dash_clientside.no_update;
     },
 
+    editarRotuloVertice: function(vertexData) {
+        if (!vertexData) return window.dash_clientside.no_update;
+        
+        let now = new Date().getTime();
+        
+        if (!window.ultimoVerticeClicado) {
+            window.ultimoVerticeClicado = { time: now, id: vertexData.id };
+            return window.dash_clientside.no_update;
+        }
+        
+        let tempoDecorrido = now - window.ultimoVerticeClicado.time;
+        let mesmoVertice = window.ultimoVerticeClicado.id === vertexData.id;
+        
+        window.ultimoVerticeClicado = { time: now, id: vertexData.id };
+        
+        if (tempoDecorrido < 400 && mesmoVertice) {
+            return {
+                id: vertexData.id,
+                label: vertexData.label || ''
+            };
+        }
+        return window.dash_clientside.no_update;
+    },
+
     escutarTeclado: function(graph_id) {
         if (!window.keydownListenerAdded) {
 
