@@ -41,7 +41,7 @@ BASE_STYLESHEET = [
             'text-outline-color': '#333', 'text-outline-width': '1px',
             'background-color': 'white', 'border-width': 4, 'border-color': '#999998',
             'transition-property': 'background-color, border-width, border-color, width, height',
-            'transition-duration': '0.2s'
+            'transition-duration': '0.2s',
         }
     },
     {
@@ -200,13 +200,18 @@ def load_graph_data():
         G.clear()
 
 
-def save_graph_data():
+def save_graph_data(is_weighted=True):
     with open(GRAPH_FILE_PATH, 'w') as f:
         f.write(f"{G.number_of_nodes()} {G.number_of_edges()}\n")
         for source, target, data in G.edges(data=True):
             s = data.get('real_source', source)
             t = data.get('real_target', target)
-            f.write(f"{s} {t} {data.get('label', '1')}\n")
+            
+            # Se for ponderado, salva a 3ª coluna. Se não for, salva apenas Origem e Destino!
+            if is_weighted:
+                f.write(f"{s} {t} {data.get('label', '1')}\n")
+            else:
+                f.write(f"{s} {t}\n")
 
 # =============================================================================
 # 3. Layout da Aplicação Dash
@@ -501,6 +506,7 @@ def _update_node_positions(cyto_elements):
     Output('toggle-direcao', 'value'),
     Output('upload-data', 'contents'),
     Output('texto-info-grafo', 'children'),
+    Output('toggle-peso', 'value'), # <--- NOVO SAÍDA (Permite o Python mudar o botão sozinho)
     Input('add-vertex-button', 'n_clicks'),
     Input('delete-selected-button', 'n_clicks'),
     Input('clear-all-button', 'n_clicks'),
@@ -510,6 +516,7 @@ def _update_node_positions(cyto_elements):
     Input('btn-salvar-peso', 'n_clicks'),
     Input('btn-hidden-center', 'n_clicks'),
     Input('toggle-direcao', 'value'),
+    Input('toggle-peso', 'value'),  # <--- MUDOU DE STATE PARA INPUT (Altera o arquivo na hora)
     Input('btn-salvar-rotulo', 'n_clicks'),
     State('cytoscape-graph', 'selectedNodeData'),
     State('cytoscape-graph', 'selectedEdgeData'),
@@ -519,7 +526,6 @@ def _update_node_positions(cyto_elements):
     State('connect-mode-store', 'data'),
     State('aresta-edit-store', 'data'),
     State('modal-input-peso', 'value'),
-    State('toggle-peso', 'value'),
     State('snapshots-store', 'data'),
     State('modal-editar-peso', 'is_open'),
     State('modal-editar-rotulo', 'is_open'),
@@ -528,9 +534,9 @@ def _update_node_positions(cyto_elements):
     prevent_initial_call=True
 )
 def main_callback(
-    add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao, btn_salvar_rotulo,
+    add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao, toggle_peso, btn_salvar_rotulo,
     sel_nodes, sel_edges, filename, cyto_elements, source_node_id, connect_mode_on,
-    aresta_edit_store_data, modal_input_value, toggle_peso, snaps, modal_is_open, modal_rotulo_is_open, modal_input_rotulo, vertex_edit_store_data
+    aresta_edit_store_data, modal_input_value, snaps, modal_is_open, modal_rotulo_is_open, modal_input_rotulo, vertex_edit_store_data
 ):
     global G
     ctx = dash.callback_context
@@ -546,15 +552,13 @@ def main_callback(
     graph_changed = False
     direcao_output = dash.no_update
     upload_reset = dash.no_update
+    peso_output = dash.no_update # <--- NOVO CONTROLE
 
     if prop_id == 'add-vertex-button.n_clicks':
-        # --- TRAVAS DE SEGURANÇA ---
         if snaps:
-            msg = html.Span(
-                "Bloqueado: Não é possível adicionar vértices durante a animação.", style={'color': 'red'})
+            msg = html.Span("Bloqueado: Não é possível adicionar vértices durante a animação.", style={'color': 'red'})
         elif modal_is_open or modal_rotulo_is_open:
             msg = dash.no_update
-        # ---------------------------
         else:
             node_ids = {int(n) for n in G.nodes if str(n).isdigit()}
             new_id = 0
@@ -568,9 +572,7 @@ def main_callback(
             pos_y = 80 + (linha * 70)
 
             G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
-
-            msg = html.Span(f"Vértice '{new_id}' adicionado.", style={
-                            'color': 'green'})
+            msg = html.Span(f"Vértice '{new_id}' adicionado.", style={'color': 'green'})
             graph_changed = True
 
     elif prop_id == 'cytoscape-graph.tapNodeData':
@@ -579,30 +581,23 @@ def main_callback(
                 target_node_id = tapped_node_data['id']
                 if not source_node_id:
                     new_source_node = target_node_id
-                    msg = html.Span(f"Vértice de origem {target_node_id} selecionado.", style={
-                                    'color': '#f5a442'})
+                    msg = html.Span(f"Vértice de origem {target_node_id} selecionado.", style={'color': '#f5a442'})
                 elif source_node_id == target_node_id:
                     if G.has_edge(source_node_id, target_node_id):
-                        msg = html.Span("Laço já existe neste vértice.", style={
-                                        'color': 'orange'})
+                        msg = html.Span("Laço já existe neste vértice.", style={'color': 'orange'})
                     else:
                         G.add_edge(source_node_id, target_node_id, label='1')
-                        G.edges[source_node_id,
-                                target_node_id]['real_source'] = source_node_id
-                        G.edges[source_node_id,
-                                target_node_id]['real_target'] = target_node_id
-                        msg = html.Span(f"Laço criado no vértice {source_node_id}.", style={
-                                        'color': 'green'})
+                        G.edges[source_node_id, target_node_id]['real_source'] = source_node_id
+                        G.edges[source_node_id, target_node_id]['real_target'] = target_node_id
+                        msg = html.Span(f"Laço criado no vértice {source_node_id}.", style={'color': 'green'})
                         graph_changed = True
                     new_source_node = None
                 else:
                     if G.has_edge(source_node_id, target_node_id):
-                        msg = html.Span("Aresta já existe.",
-                                        style={'color': 'orange'})
+                        msg = html.Span("Aresta já existe.", style={'color': 'orange'})
                     else:
                         G.add_edge(source_node_id, target_node_id, label='1')
-                        msg = html.Span(f"Aresta de {source_node_id} a {target_node_id} criada.", style={
-                                        'color': 'green'})
+                        msg = html.Span(f"Aresta de {source_node_id} a {target_node_id} criada.", style={'color': 'green'})
                         graph_changed = True
                     new_source_node = None
         else:
@@ -618,39 +613,29 @@ def main_callback(
 
     elif prop_id == 'delete-selected-button.n_clicks':
         if snaps:
-            msg = html.Span(
-                "Bloqueado: Não é possível deletar durante a animação.", style={'color': 'red'})
+            msg = html.Span("Bloqueado: Não é possível deletar durante a animação.", style={'color': 'red'})
         elif modal_is_open or modal_rotulo_is_open:
             msg = dash.no_update
         elif not connect_mode_on and (sel_nodes or sel_edges):
-            nodes_to_remove = {n['id']
-                               for n in sel_nodes} if sel_nodes else set()
-            edges_to_remove = [(e['source'], e['target'])
-                               for e in sel_edges] if sel_edges else []
+            nodes_to_remove = {n['id'] for n in sel_nodes} if sel_nodes else set()
+            edges_to_remove = [(e['source'], e['target']) for e in sel_edges] if sel_edges else []
             G.remove_nodes_from(nodes_to_remove)
             G.remove_edges_from(edges_to_remove)
-            msg = html.Span("Elemento(s) removido(s).",
-                            style={'color': 'green'})
+            msg = html.Span("Elemento(s) removido(s).", style={'color': 'green'})
             graph_changed = True
             if source_node_id in nodes_to_remove:
                 new_source_node = None
 
     elif prop_id == 'clear-all-button.n_clicks':
         if snaps:
-            msg = html.Span(
-                "Bloqueado: Não é possível limpar a tela durante a animação.", style={'color': 'red'})
+            msg = html.Span("Bloqueado: Não é possível limpar a tela durante a animação.", style={'color': 'red'})
         elif modal_is_open or modal_rotulo_is_open:
             msg = dash.no_update
-
-        # --- A NOVA TRAVA CONTRA O CONGELAMENTO ---
         elif not G.nodes:
-            msg = html.Span(f"O grafo já está vazio. (Ação {clear_all})", style={
-                            'color': 'orange'})
-
+            msg = html.Span(f"O grafo já está vazio. (Ação {clear_all})", style={'color': 'orange'})
         else:
             G.clear()
-            msg = html.Span(f"Grafo completamente limpo. (Ação {clear_all})", style={
-                            'color': 'green'})
+            msg = html.Span(f"Grafo completamente limpo. (Ação {clear_all})", style={'color': 'green'})
             graph_changed = True
             new_source_node = None
 
@@ -665,38 +650,100 @@ def main_callback(
 
                 if G.has_edge(src, tgt):
                     G.edges[src, tgt]['label'] = str(novo_peso_int)
-                    msg = html.Span(f"Peso atualizado para {novo_peso_int}", style={
-                                    'color': 'green'})
+                    msg = html.Span(f"Peso atualizado para {novo_peso_int}", style={'color': 'green'})
                     graph_changed = True
             except ValueError:
-                msg = html.Span(
-                    "Erro: O peso deve ser um número inteiro.", style={'color': 'red'})
+                msg = html.Span("Erro: O peso deve ser um número inteiro.", style={'color': 'red'})
 
     elif prop_id == 'btn-salvar-rotulo.n_clicks':
         if vertex_edit_store_data and modal_input_rotulo is not None:
-            node_id = vertex_edit_store_data['id']
-            novo_rotulo = str(modal_input_rotulo).strip()
+            old_id = str(vertex_edit_store_data['id'])
+            novo_id = str(modal_input_rotulo).strip()
 
             try:
-                novo_rotulo_int = int(novo_rotulo)
-                if G.has_node(node_id) and novo_rotulo_int >= 0:
-                    G.nodes[node_id]['label'] = novo_rotulo
-                    msg = html.Span(f"Rótulo do vértice atualizado para '{novo_rotulo}'", style={
-                                    'color': 'green'})
+                novo_id_int = int(novo_id)
+                if novo_id_int < 0:
+                    msg = html.Span("Erro: O ID deve ser positivo.", style={'color': 'red'})
+                elif novo_id == old_id:
+                    msg = dash.no_update
+                elif G.has_node(novo_id):
+                    msg = html.Span(f"Erro: O vértice '{novo_id}' já existe!", style={'color': 'red', 'fontWeight': 'bold'})
+                elif G.has_node(old_id):
+                    import networkx as nx
+                    nx.relabel_nodes(G, {old_id: novo_id}, copy=False)
+                    
+                    arestas_incidentes = []
+                    if G.is_directed():
+                        arestas_incidentes.extend(G.out_edges(novo_id, data=True)) 
+                        arestas_incidentes.extend(G.in_edges(novo_id, data=True))  
+                    else:
+                        arestas_incidentes.extend(G.edges(novo_id, data=True))
+
+                    for u, v, data in arestas_incidentes:
+                        if data.get('real_source') == old_id:
+                            data['real_source'] = novo_id
+                        if data.get('real_target') == old_id:
+                            data['real_target'] = novo_id
+                            
+                    msg = html.Span(f"Vértice '{old_id}' alterado para '{novo_id}'.", style={'color': 'green'})
                     graph_changed = True
+                    
+                    if source_node_id == old_id:
+                        new_source_node = novo_id
+                        
             except ValueError:
-                msg = html.Span(
-                    "Erro: O rótulo deve ser um número inteiro positivo.", style={'color': 'red'})
+                msg = html.Span("Erro: O ID deve ser um número inteiro.", style={'color': 'red'})
+
+    elif prop_id == 'toggle-direcao.value':
+        is_directed = (toggle_direcao == 'orientado')
+        if is_directed and not G.is_directed():
+            novo_G = nx.DiGraph()
+            novo_G.add_nodes_from(G.nodes(data=True))
+            for u, v, attrs in G.edges(data=True):
+                s = attrs.get('real_source', u)
+                t = attrs.get('real_target', v)
+                novo_G.add_edge(s, t, **attrs)
+            G = novo_G
+            msg = html.Span("Grafo alterado para Orientado.", style={'color': 'blue'})
+            graph_changed = True
+        elif not is_directed and G.is_directed():
+            novo_G = nx.Graph()
+            novo_G.add_nodes_from(G.nodes(data=True))
+            for u, v, data in G.edges(data=True):
+                try:
+                    peso_atual = int(data.get('label', '1'))
+                except ValueError:
+                    peso_atual = 1
+                if novo_G.has_edge(u, v):
+                    try:
+                        peso_existente = int(novo_G.edges[u, v].get('label', '1'))
+                    except ValueError:
+                        peso_existente = 1
+                    if peso_atual < peso_existente:
+                        novo_G.edges[u, v]['label'] = str(peso_atual)
+                        novo_G.edges[u, v]['real_source'] = u
+                        novo_G.edges[u, v]['real_target'] = v
+                else:
+                    data_copy = data.copy()
+                    data_copy['real_source'] = u
+                    data_copy['real_target'] = v
+                    novo_G.add_edge(u, v, **data_copy)
+            G = novo_G
+            msg = html.Span("Grafo alterado para Não Orientado.", style={'color': 'blue'})
+            graph_changed = True
+
+    # --- AÇÃO QUANDO CLICA NO BOTÃO DE PESO DA TELA ---
+    elif prop_id == 'toggle-peso.value':
+        msg = html.Span("Grafo alterado para Não Ponderado." if toggle_peso == 'sem_peso' else "Grafo alterado para Ponderado.", style={'color': 'blue'})
+        graph_changed = True
 
     elif prop_id == 'upload-data.contents':
         if upload_contents:
             _, content_string = upload_contents.split(',')
             decoded = base64.b64decode(content_string).decode('utf-8')
 
-            linhas = [linha.strip()
-                      for linha in decoded.splitlines() if linha.strip()]
+            linhas = [linha.strip() for linha in decoded.splitlines() if linha.strip()]
 
-            # --- 1. VARIÁVEIS DE CONTROLE DA VALIDAÇÃO ---
             arquivo_valido = True
             msg_erro = ""
             arestas_vistas = set()
@@ -705,8 +752,11 @@ def main_callback(
             qtd_arestas_reais = 0
             v_header = 0
             e_header = 0
+            
+            # --- CONTADORES PARA VALIDAÇÃO DE PESOS ---
+            qtd_com_peso = 0
+            qtd_sem_peso = 0
 
-            # --- 2. VALIDAÇÃO DO CABEÇALHO ---
             if not linhas:
                 arquivo_valido, msg_erro = False, "O arquivo está vazio."
             else:
@@ -720,7 +770,6 @@ def main_callback(
                     except ValueError:
                         arquivo_valido, msg_erro = False, "O cabeçalho deve conter apenas números inteiros."
 
-            # --- 3. VALIDAÇÃO DAS LINHAS (ARESTAS E PESOS) ---
             if arquivo_valido:
                 for i, linha in enumerate(linhas[1:], start=2):
                     partes = linha.split()
@@ -734,11 +783,13 @@ def main_callback(
                         v = int(partes[1])
                         if len(partes) == 3:
                             peso = int(partes[2])
+                            qtd_com_peso += 1  # Conta aresta COM peso
+                        else:
+                            qtd_sem_peso += 1  # Conta aresta SEM peso
                     except ValueError:
                         arquivo_valido, msg_erro = False, f"Erro na linha {i}: Vértices e pesos devem ser números inteiros."
                         break
 
-                    # Guarda os vértices únicos e conta a aresta
                     vertices_unicos.add(str(u))
                     vertices_unicos.add(str(v))
                     qtd_arestas_reais += 1
@@ -747,14 +798,15 @@ def main_callback(
                         tem_ida_e_volta = True
                     arestas_vistas.add((str(u), str(v)))
 
-            # --- 3.5. VALIDAÇÃO DE INTEGRIDADE (CABEÇALHO VS DADOS) ---
             if arquivo_valido:
                 if qtd_arestas_reais != e_header:
                     arquivo_valido, msg_erro = False, f"Inconsistência: Cabeçalho diz {e_header} arestas, mas há {qtd_arestas_reais} lidas."
                 elif len(vertices_unicos) > v_header:
                     arquivo_valido, msg_erro = False, f"Inconsistência: Cabeçalho diz {v_header} vértices, mas as arestas usam {len(vertices_unicos)} distintos."
+                # --- NOVA REGRA DO UPLOAD: MISTURA PROIBIDA ---
+                elif qtd_com_peso > 0 and qtd_sem_peso > 0:
+                    arquivo_valido, msg_erro = False, "Inconsistência: O arquivo mistura arestas COM peso e SEM peso. Utilize um único padrão para todo o arquivo."
 
-            # --- 4. EXECUÇÃO OU BLOQUEIO ---
             if arquivo_valido:
                 with open(GRAPH_FILE_PATH, 'w') as f:
                     f.write(decoded)
@@ -762,20 +814,28 @@ def main_callback(
                 if tem_ida_e_volta and toggle_direcao == 'nao_orientado':
                     G = nx.DiGraph()
                     direcao_output = 'orientado'
-                    msg = html.Span("Arquivo carregado (Alterado para Orientado automaticamente!)", style={
-                                    'color': 'blue'})
+                    msg_dir = " (Alterado para Orientado)"
                 else:
-                    msg = html.Span("Arquivo carregado com sucesso!", style={
-                                    'color': 'green'})
+                    msg_dir = ""
+                    
+                # --- NOVO: AUTO-AJUSTE DA TELA BASEADO NO ARQUIVO LIDO ---
+                if qtd_com_peso > 0:
+                    peso_output = 'com_peso'
+                    msg_peso = " Ponderado"
+                elif qtd_sem_peso > 0:
+                    peso_output = 'sem_peso'
+                    msg_peso = " Não Ponderado"
+                else:
+                    msg_peso = "" # Caso o arquivo tenha 0 arestas
+
+                msg = html.Span(f"Arquivo{msg_peso} carregado com sucesso!{msg_dir}", style={'color': 'green'})
 
                 load_graph_data()
-                layout_output = {'name': 'circle',
-                                 'animate': True, 'animationDuration': 500}
+                layout_output = {'name': 'circle', 'animate': True, 'animationDuration': 500}
                 new_source_node = None
                 graph_changed = True
             else:
-                msg = html.Span(
-                    f"Falha ao carregar: {msg_erro}", style={'color': 'red'})
+                msg = html.Span(f"Falha ao carregar: {msg_erro}", style={'color': 'red'})
 
             upload_reset = None
 
@@ -790,85 +850,40 @@ def main_callback(
                 'refresh_trigger': f"zoom_{btn_hidden_center}"
             }
 
-    elif prop_id == 'toggle-direcao.value':
-        is_directed = (toggle_direcao == 'orientado')
-
-        if is_directed and not G.is_directed():
-            novo_G = nx.DiGraph()
-            novo_G.add_nodes_from(G.nodes(data=True))
-            # Usa a memória fotográfica para apontar a seta pro lado certo!
-            for u, v, attrs in G.edges(data=True):
-                s = attrs.get('real_source', u)
-                t = attrs.get('real_target', v)
-                novo_G.add_edge(s, t, **attrs)
-            G = novo_G
-            msg = html.Span("Grafo alterado para Orientado.",
-                            style={'color': 'blue'})
-            graph_changed = True
-
-        elif not is_directed and G.is_directed():
-            novo_G = nx.Graph()
-            novo_G.add_nodes_from(G.nodes(data=True))
-
-            for u, v, data in G.edges(data=True):
-                try:
-                    peso_atual = int(data.get('label', '1'))
-                except ValueError:
-                    peso_atual = 1
-
-                if novo_G.has_edge(u, v):
-                    try:
-                        peso_existente = int(
-                            novo_G.edges[u, v].get('label', '1'))
-                    except ValueError:
-                        peso_existente = 1
-
-                    if peso_atual < peso_existente:
-                        novo_G.edges[u, v]['label'] = str(peso_atual)
-                        # O peso atual venceu! Atualiza a memória com a direção dele
-                        novo_G.edges[u, v]['real_source'] = u
-                        novo_G.edges[u, v]['real_target'] = v
-                else:
-                    data_copy = data.copy()
-                    # Aresta nova! Grava a direção inicial dela
-                    data_copy['real_source'] = u
-                    data_copy['real_target'] = v
-                    novo_G.add_edge(u, v, **data_copy)
-
-            G = novo_G
-            msg = html.Span("Grafo alterado para Não Orientado.",
-                            style={'color': 'blue'})
-            graph_changed = True
-
     if graph_changed:
-        save_graph_data()
+        # AQUI É ONDE ELE DECIDE COMO SALVAR:
+        # Se um upload mudou a variável peso_output, usa ela. Senão, usa o estado do botão na tela!
+        tipo_peso_final = peso_output if peso_output != dash.no_update else toggle_peso
+        is_weighted = (tipo_peso_final == 'com_peso')
+        save_graph_data(is_weighted) # Salva omitindo a 3ª coluna se for Falso!
+        
         new_elements = nx_to_cytoscape(G)
         empty_msg = "" if G.nodes else "Grafo vazio. Adicione um vértice para começar."
 
         if not G.nodes:
             layout_output = {'name': 'preset'}
         elif layout_output == dash.no_update:
-            layout_output = {'name': 'preset',
-                             'animate': True, 'fit': False, 'animationDuration': 100}
+            layout_output = {'name': 'preset', 'animate': True, 'fit': False, 'animationDuration': 100}
     else:
         new_elements = dash.no_update
         empty_msg = dash.no_update
 
+    tipo_peso_final = peso_output if peso_output != dash.no_update else toggle_peso
     tipo_dir = "Orientado" if G.is_directed() else "Não Orientado"
-    tipo_peso = "Não Ponderado" if toggle_peso == 'sem_peso' else "Ponderado"
+    tipo_peso_tela = "Não Ponderado" if tipo_peso_final == 'sem_peso' else "Ponderado"
     propriedades_atuais = obter_propriedades_grafo(G)
 
     info_texto = [
         html.B("Vértices: "), f"{G.number_of_nodes()}", html.Br(),
         html.B("Arestas: "), f"{G.number_of_edges()}", html.Br(),
-        html.B(
-            "Soma dos Graus: "), f"{sum([d for n, d in G.degree()])}", html.Br(),
+        html.B("Soma dos Graus: "), f"{sum([d for n, d in G.degree()])}", html.Br(),
         html.B("Direção: "), tipo_dir, html.Br(),
-        html.B("Peso: "), tipo_peso, html.Br(),
+        html.B("Peso: "), tipo_peso_tela, html.Br(),
         html.B("Propriedades: "), propriedades_atuais
     ]
 
-    return new_elements, msg, layout_output, new_source_node, empty_msg, direcao_output, upload_reset, info_texto
+    # Retorna o peso_output como 9º item para mudar o botão lá no painel!
+    return new_elements, msg, layout_output, new_source_node, empty_msg, direcao_output, upload_reset, info_texto, peso_output
 
 
 @app.callback(
@@ -998,14 +1013,17 @@ def toggle_delete_button(nodes, edges, connect_mode_on, snaps):
     Output('cytoscape-graph', 'layout', allow_duplicate=True),
     Input('home-button', 'n_clicks'),
     State('cytoscape-graph', 'elements'),
+    State('toggle-peso', 'value'), # <--- LÊ O ESTADO ATUAL DO PESO NA TELA
     prevent_initial_call=True
 )
-def reset_layout(n_clicks, cyto_elements):
+def reset_layout(n_clicks, cyto_elements, toggle_peso):
     if not n_clicks:
         raise PreventUpdate
 
     _update_node_positions(cyto_elements)
-    save_graph_data()
+    
+    # Salva o arquivo respeitando a regra do botão da interface
+    save_graph_data(toggle_peso == 'com_peso') 
 
     return {
         'name': 'circle',
@@ -1600,7 +1618,7 @@ app.clientside_callback(
             // O truque para reiniciar a animação CSS toda vez que uma mensagem nova chega
             el.style.animation = 'none';
             el.offsetHeight; /* Força o navegador a recalcular a tela */
-            el.style.animation = 'fadeOutMsg 3.5s forwards'; /* Dura 3.5 segundos */
+            el.style.animation = 'fadeOutMsg 5.0s forwards'; /* Dura 3.5 segundos */
         }
         return window.dash_clientside.no_update;
     }
