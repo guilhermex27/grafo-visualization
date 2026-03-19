@@ -47,17 +47,25 @@ BASE_STYLESHEET = [
     {
         'selector': 'edge',
         'style': {
-            'label': 'data(label)', 'color': 'black', 'font-weight': '800',
-            'text-margin-y': '-20vh', 'text-margin-x': '0',
+            'label': 'data(label)', 'color': '#333',
+
+            'text-background-color': '#ffffff',
+            'text-background-opacity': 1,
+            'text-background-shape': 'roundcircle',
+            'text-background-padding': '5px',
+            'text-wrap': 'wrap',
+            'text-z-index': 10,
+            # 'text-rotation': 'autorotate',
+            'text-outline-color': '#333', 'text-outline-width': '0.4px',
             'transition-property': 'line-color, width, target-arrow-color',
-            'transition-duration': '0.2s'
+            'transition-duration': '0.2s',
         }
     },
     {
         'selector': ':selected',
         'style': {
             'border-width': 4, 'border-color': '#42a5f5',
-            'background-color': '#64b5f6'  # Fica mais claro quando selecionado
+            'background-color': '#64b5f6'
         }
     }
 ]
@@ -127,7 +135,7 @@ def obter_propriedades_grafo(graph_obj):
     graus = [d for n, d in graph_obj.degree()]
     if graus:
         qtd_graus_distintos = len(set(graus))
-        
+
         if qtd_graus_distintos == 1:
             props.append("Regular")
         else:
@@ -403,11 +411,11 @@ def serve_layout():
                     # CARTÃO 3: Deletar
                     html.Div(className='card shadow-sm border-0 p-3', children=[
                         html.H6("Deletar", className="fw-bold mb-3 text-center"),
-                        
+
                         # Trocado para dbc.Button
                         dbc.Button('Deletar Selecionado', id='delete-selected-button',
                                    disabled=True, color="danger", className='w-100 fw-bold mb-2'),
-                                    
+
                         # Trocado para dbc.Button com outline=True
                         dbc.Button('Limpar Tudo', id='clear-all-button',
                                    color="danger", outline=True, className='w-100 fw-bold')
@@ -440,8 +448,9 @@ def serve_layout():
         ]),
         html.Div(id='action-output-message', className="w-100 text-center mt-2", style={
             # SEM position: absolute! Ele flui naturalmente para debaixo do grafo.
-            'minHeight': '30px', # Mantém o espaço reservado para a tela não dar "soquinhos" quando o texto aparece/some
-            'pointerEvents': 'none', 
+            # Mantém o espaço reservado para a tela não dar "soquinhos" quando o texto aparece/some
+            'minHeight': '30px',
+            'pointerEvents': 'none',
             'fontWeight': 'bold',
             'color': '#444',         # Cinza escuro elegante
             'fontSize': '15px',
@@ -521,7 +530,8 @@ def main_callback(
     if prop_id == 'add-vertex-button.n_clicks':
         # --- TRAVAS DE SEGURANÇA ---
         if snaps:
-            msg = html.Span("Bloqueado: Não é possível adicionar vértices durante a animação.", style={'color': 'red'})
+            msg = html.Span(
+                "Bloqueado: Não é possível adicionar vértices durante a animação.", style={'color': 'red'})
         elif modal_is_open:
             msg = dash.no_update
         # ---------------------------
@@ -530,16 +540,17 @@ def main_callback(
             new_id = 0
             while new_id in node_ids:
                 new_id += 1
-                
+
             coluna = new_id % 8
             linha = new_id // 8
-            
+
             pos_x = 80 + (coluna * 70)
             pos_y = 80 + (linha * 70)
-     
+
             G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
-            
-            msg = html.Span(f"Vértice '{new_id}' adicionado.", style={'color': 'green'})
+
+            msg = html.Span(f"Vértice '{new_id}' adicionado.", style={
+                            'color': 'green'})
             graph_changed = True
 
     elif prop_id == 'cytoscape-graph.tapNodeData':
@@ -607,17 +618,20 @@ def main_callback(
 
     elif prop_id == 'clear-all-button.n_clicks':
         if snaps:
-            msg = html.Span("Bloqueado: Não é possível limpar a tela durante a animação.", style={'color': 'red'})
+            msg = html.Span(
+                "Bloqueado: Não é possível limpar a tela durante a animação.", style={'color': 'red'})
         elif modal_is_open:
             msg = dash.no_update
-            
+
         # --- A NOVA TRAVA CONTRA O CONGELAMENTO ---
-        elif not G.nodes: 
-            msg = html.Span(f"O grafo já está vazio. (Ação {clear_all})", style={'color': 'orange'})
-            
+        elif not G.nodes:
+            msg = html.Span(f"O grafo já está vazio. (Ação {clear_all})", style={
+                            'color': 'orange'})
+
         else:
-            G.clear() 
-            msg = html.Span(f"Grafo completamente limpo. (Ação {clear_all})", style={'color': 'green'}) 
+            G.clear()
+            msg = html.Span(f"Grafo completamente limpo. (Ação {clear_all})", style={
+                            'color': 'green'})
             graph_changed = True
             new_source_node = None
 
@@ -796,11 +810,11 @@ def main_callback(
         new_elements = nx_to_cytoscape(G)
         empty_msg = "" if G.nodes else "Grafo vazio. Adicione um vértice para começar."
 
-        # Proteção extra: Se limpou o grafo, não tente atualizar o layout de animação
         if not G.nodes:
-            layout_output = {'name': 'preset'} # <--- ISSO ACORDA O CYTOSCAPE
+            layout_output = {'name': 'preset'}
         elif layout_output == dash.no_update:
-            layout_output = {'name': 'preset', 'animate': True, 'animationDuration': 100}
+            layout_output = {'name': 'preset',
+                             'animate': True, 'fit': False, 'animationDuration': 100}
     else:
         new_elements = dash.no_update
         empty_msg = dash.no_update
@@ -827,8 +841,10 @@ def main_callback(
     Output('connect-mode-button', 'children'),
     Output('connect-mode-help-text', 'children'),
     Output('source-node-store', 'data', allow_duplicate=True),
-    Output('action-output-message', 'children', allow_duplicate=True), # <--- NOVO (Mensagem)
-    Output('connect-mode-button', 'className'),                        # <--- NOVO (Cor do Botão)
+    Output('action-output-message', 'children',
+           allow_duplicate=True),  # <--- NOVO (Mensagem)
+    # <--- NOVO (Cor do Botão)
+    Output('connect-mode-button', 'className'),
     Input('connect-mode-button', 'n_clicks'),
     State('connect-mode-store', 'data'),
     State('snapshots-store', 'data'),       # Trava do Player
@@ -844,13 +860,14 @@ def toggle_connect_mode(n_clicks, is_on, snaps, modal_is_open):
 
     if new_mode_is_on:
         # VISUAL MODO CONEXÃO (Laranja)
-        button_text = "🔗 Modo: Conexão"
+        button_text = "Modo: Conexão"
         help_text = "(Clique na Origem, depois no Destino)"
         btn_class = "btn btn-warning text-dark w-100 fw-bold mb-2"
-        msg = html.Span("Modo de Conexão Ativado. Selecione o vértice de origem.", style={'color': '#d97706'})
+        msg = html.Span("Modo de Conexão Ativado. Selecione o vértice de origem.", style={
+                        'color': '#d97706'})
     else:
         # VISUAL MODO SELEÇÃO (Azul)
-        button_text = "🖱️ Modo: Seleção"
+        button_text = "Modo: Seleção"
         help_text = "(Selecione elementos para deletar)"
         btn_class = "btn btn-info text-white w-100 fw-bold mb-2"
         msg = html.Span("Modo de Seleção Ativado.", style={'color': '#0284c7'})
@@ -1509,12 +1526,13 @@ app.clientside_callback(
             // O truque para reiniciar a animação CSS toda vez que uma mensagem nova chega
             el.style.animation = 'none';
             el.offsetHeight; /* Força o navegador a recalcular a tela */
-            el.style.animation = 'fadeOutMsg 2.5s forwards'; /* Dura 3.5 segundos */
+            el.style.animation = 'fadeOutMsg 3.5s forwards'; /* Dura 3.5 segundos */
         }
         return window.dash_clientside.no_update;
     }
     """,
-    Output('keyboard-listener-dummy', 'data-fade'), # Apenas um output fantasma necessário
+    Output('keyboard-listener-dummy',
+           'data-fade'),  # Apenas um output fantasma necessário
     Input('action-output-message', 'children'),
     prevent_initial_call=True
 )

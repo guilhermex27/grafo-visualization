@@ -55,13 +55,6 @@ window.dash_clientside.grafos = {
                     }
                 }
 
-                // Atalho 3: Tecla 'a' ou 'A' (Alterna modo de conexão/seleção)
-                if (event.key === 'a' || event.key === 'A') {
-                    var btnConexao = document.getElementById('connect-mode-button');
-                    if (btnConexao) {
-                        btnConexao.click();
-                    }
-                }
             });
 
             document.addEventListener('dblclick', function(event) {
@@ -70,6 +63,19 @@ window.dash_clientside.grafos = {
                     let btnCentralizar = document.getElementById('btn-hidden-center');
                     if (btnCentralizar) {
                         btnCentralizar.click();
+                    }
+                }
+            });
+
+            document.addEventListener('contextmenu', function(event) {
+                let container = document.getElementById('cytoscape-graph');
+                
+                if (container && container.contains(event.target)) {
+                    event.preventDefault();
+                    
+                    var btnConexao = document.getElementById('connect-mode-button');
+                    if (btnConexao) {
+                        btnConexao.click();
                     }
                 }
             });
