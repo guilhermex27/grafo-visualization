@@ -125,8 +125,13 @@ def obter_propriedades_grafo(graph_obj):
 
     # 4. Regular (Todos os nós têm o mesmo grau)
     graus = [d for n, d in graph_obj.degree()]
-    if graus and len(set(graus)) == 1:
-        props.append("Regular")
+    if graus:
+        qtd_graus_distintos = len(set(graus))
+        
+        if qtd_graus_distintos == 1:
+            props.append("Regular")
+        else:
+            props.append("Irregular")
 
     # 5. Completo
     n = graph_obj.number_of_nodes()
@@ -398,8 +403,14 @@ def serve_layout():
                     # CARTÃO 3: Deletar
                     html.Div(className='card shadow-sm border-0 p-3', children=[
                         html.H6("Deletar", className="fw-bold mb-3 text-center"),
-                        html.Button('Deletar Selecionado', id='delete-selected-button',
-                                    disabled=True, className='btn btn-danger w-100 fw-bold')
+                        
+                        # Trocado para dbc.Button
+                        dbc.Button('Deletar Selecionado', id='delete-selected-button',
+                                   disabled=True, color="danger", className='w-100 fw-bold mb-2'),
+                                    
+                        # Trocado para dbc.Button com outline=True
+                        dbc.Button('Limpar Tudo', id='clear-all-button',
+                                   color="danger", outline=True, className='w-100 fw-bold')
                     ]),
 
                     # CARTÃO 4: Configurações
@@ -427,8 +438,15 @@ def serve_layout():
                 ])
             ])
         ]),
-        html.Div(id='action-output-message', style={'position': 'fixed', 'bottom': '5px', 'left': '50%', 'transform': 'translateX(-50%)',
-                 'zIndex': 1050, 'textAlign': 'center', 'pointerEvents': 'none', 'fontWeight': 'bold', 'backgroundColor': 'transparent'}),
+        html.Div(id='action-output-message', className="w-100 text-center mt-2", style={
+            # SEM position: absolute! Ele flui naturalmente para debaixo do grafo.
+            'minHeight': '30px', # Mantém o espaço reservado para a tela não dar "soquinhos" quando o texto aparece/some
+            'pointerEvents': 'none', 
+            'fontWeight': 'bold',
+            'color': '#444',         # Cinza escuro elegante
+            'fontSize': '15px',
+            'whiteSpace': 'nowrap'
+        })
     ])
 
 
@@ -460,6 +478,7 @@ def _update_node_positions(cyto_elements):
     Output('texto-info-grafo', 'children'),
     Input('add-vertex-button', 'n_clicks'),
     Input('delete-selected-button', 'n_clicks'),
+    Input('clear-all-button', 'n_clicks'),
     Input('upload-data', 'contents'),
     Input('cytoscape-graph', 'tapNodeData'),
     Input('cytoscape-graph', 'tapEdgeData'),
@@ -480,7 +499,7 @@ def _update_node_positions(cyto_elements):
     prevent_initial_call=True
 )
 def main_callback(
-    add_v, del_s, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao,
+    add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao,
     sel_nodes, sel_edges, filename, cyto_elements, source_node_id, connect_mode_on,
     aresta_edit_store_data, modal_input_value, toggle_peso, snaps, modal_is_open
 ):
@@ -500,14 +519,28 @@ def main_callback(
     upload_reset = dash.no_update
 
     if prop_id == 'add-vertex-button.n_clicks':
-        node_ids = {int(n) for n in G.nodes if str(n).isdigit()}
-        new_id = 0
-        while new_id in node_ids:
-            new_id += 1
-        G.add_node(str(new_id))
-        msg = html.Span(f"Vértice '{new_id}' adicionado.", style={
-                        'color': 'green'})
-        graph_changed = True
+        # --- TRAVAS DE SEGURANÇA ---
+        if snaps:
+            msg = html.Span("Bloqueado: Não é possível adicionar vértices durante a animação.", style={'color': 'red'})
+        elif modal_is_open:
+            msg = dash.no_update
+        # ---------------------------
+        else:
+            node_ids = {int(n) for n in G.nodes if str(n).isdigit()}
+            new_id = 0
+            while new_id in node_ids:
+                new_id += 1
+                
+            coluna = new_id % 8
+            linha = new_id // 8
+            
+            pos_x = 80 + (coluna * 70)
+            pos_y = 80 + (linha * 70)
+     
+            G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
+            
+            msg = html.Span(f"Vértice '{new_id}' adicionado.", style={'color': 'green'})
+            graph_changed = True
 
     elif prop_id == 'cytoscape-graph.tapNodeData':
         if connect_mode_on:
@@ -571,6 +604,22 @@ def main_callback(
             graph_changed = True
             if source_node_id in nodes_to_remove:
                 new_source_node = None
+
+    elif prop_id == 'clear-all-button.n_clicks':
+        if snaps:
+            msg = html.Span("Bloqueado: Não é possível limpar a tela durante a animação.", style={'color': 'red'})
+        elif modal_is_open:
+            msg = dash.no_update
+            
+        # --- A NOVA TRAVA CONTRA O CONGELAMENTO ---
+        elif not G.nodes: 
+            msg = html.Span(f"O grafo já está vazio. (Ação {clear_all})", style={'color': 'orange'})
+            
+        else:
+            G.clear() 
+            msg = html.Span(f"Grafo completamente limpo. (Ação {clear_all})", style={'color': 'green'}) 
+            graph_changed = True
+            new_source_node = None
 
     elif prop_id == 'btn-salvar-peso.n_clicks':
         if aresta_edit_store_data and modal_input_value is not None:
@@ -747,9 +796,11 @@ def main_callback(
         new_elements = nx_to_cytoscape(G)
         empty_msg = "" if G.nodes else "Grafo vazio. Adicione um vértice para começar."
 
-        if layout_output == dash.no_update:
-            layout_output = {'name': 'preset',
-                             'animate': True, 'animationDuration': 100}
+        # Proteção extra: Se limpou o grafo, não tente atualizar o layout de animação
+        if not G.nodes:
+            layout_output = {'name': 'preset'} # <--- ISSO ACORDA O CYTOSCAPE
+        elif layout_output == dash.no_update:
+            layout_output = {'name': 'preset', 'animate': True, 'animationDuration': 100}
     else:
         new_elements = dash.no_update
         empty_msg = dash.no_update
@@ -776,15 +827,35 @@ def main_callback(
     Output('connect-mode-button', 'children'),
     Output('connect-mode-help-text', 'children'),
     Output('source-node-store', 'data', allow_duplicate=True),
+    Output('action-output-message', 'children', allow_duplicate=True), # <--- NOVO (Mensagem)
+    Output('connect-mode-button', 'className'),                        # <--- NOVO (Cor do Botão)
     Input('connect-mode-button', 'n_clicks'),
     State('connect-mode-store', 'data'),
+    State('snapshots-store', 'data'),       # Trava do Player
+    State('modal-editar-peso', 'is_open'),  # Trava do Modal
     prevent_initial_call=True
 )
-def toggle_connect_mode(n_clicks, is_on):
+def toggle_connect_mode(n_clicks, is_on, snaps, modal_is_open):
+    # Trava de segurança contra atalhos de teclado indevidos
+    if snaps or modal_is_open:
+        raise PreventUpdate
+
     new_mode_is_on = not is_on
-    button_text = "Modo: Conexão" if new_mode_is_on else "Modo: Seleção"
-    help_text = "(Clique em um nó, depois em outro)" if new_mode_is_on else "(Selecione elementos para deletar)"
-    return new_mode_is_on, button_text, help_text, None
+
+    if new_mode_is_on:
+        # VISUAL MODO CONEXÃO (Laranja)
+        button_text = "🔗 Modo: Conexão"
+        help_text = "(Clique na Origem, depois no Destino)"
+        btn_class = "btn btn-warning text-dark w-100 fw-bold mb-2"
+        msg = html.Span("Modo de Conexão Ativado. Selecione o vértice de origem.", style={'color': '#d97706'})
+    else:
+        # VISUAL MODO SELEÇÃO (Azul)
+        button_text = "🖱️ Modo: Seleção"
+        help_text = "(Selecione elementos para deletar)"
+        btn_class = "btn btn-info text-white w-100 fw-bold mb-2"
+        msg = html.Span("Modo de Seleção Ativado.", style={'color': '#0284c7'})
+
+    return new_mode_is_on, button_text, help_text, None, msg, btn_class
 
 
 @app.callback(
@@ -1425,6 +1496,26 @@ app.clientside_callback(
     dash.ClientsideFunction(namespace='grafos', function_name='editarAresta'),
     Output('edge-edit-store', 'data'),
     Input('cytoscape-graph', 'tapEdgeData'),
+    prevent_initial_call=True
+)
+
+app.clientside_callback(
+    """
+    function(children) {
+        if (!children) return window.dash_clientside.no_update;
+        
+        var el = document.getElementById('action-output-message');
+        if (el) {
+            // O truque para reiniciar a animação CSS toda vez que uma mensagem nova chega
+            el.style.animation = 'none';
+            el.offsetHeight; /* Força o navegador a recalcular a tela */
+            el.style.animation = 'fadeOutMsg 2.5s forwards'; /* Dura 3.5 segundos */
+        }
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output('keyboard-listener-dummy', 'data-fade'), # Apenas um output fantasma necessário
+    Input('action-output-message', 'children'),
     prevent_initial_call=True
 )
 

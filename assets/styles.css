@@ -3,7 +3,6 @@ body {
     background-color: #f4f4f9;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
-    padding: 5px;
 }
 .modal{
     position: fixed;
@@ -31,7 +30,7 @@ body {
     right: 0;
     top: 50%;
     transform: translateY(-50%);
-    z-index: 100;
+    /* z-index: 100; */
     display: flex;
 }
 .btn-paineis button {
@@ -117,8 +116,8 @@ button:disabled {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 60px;
-    height: 60px;
+    width: 40px;
+    height: 40px;
     margin-left: 10px; /* Dá um espacinho entre os botões */
 }
 
@@ -166,4 +165,10 @@ button:disabled {
 .player button:hover {
     transform: scale(1.08);
     filter: brightness(0.8);
+}
+
+@keyframes fadeOutMsg {
+    0%   { opacity: 1; }
+    75%  { opacity: 1; }
+    100% { opacity: 0; }
 }

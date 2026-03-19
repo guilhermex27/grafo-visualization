@@ -33,10 +33,33 @@ window.dash_clientside.grafos = {
         if (!window.keydownListenerAdded) {
 
             document.addEventListener('keydown', function(event) {
+                // TRAVA CRÍTICA: Ignora o teclado se o usuário estiver digitando no Input do Modal de peso!
+                if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+
+                // Atalho 1: Delete (Deleta selecionado)
                 if (event.key === 'Delete') {
                     var btnDeletar = document.getElementById('delete-selected-button');
                     if (btnDeletar && !btnDeletar.disabled) {
                         btnDeletar.click();
+                    }
+                }
+
+                // Atalho 2: Tecla '+' ou '=' (Adiciona vértice)
+                // Usamos '=' também porque muitas vezes o '+' requer segurar Shift no teclado
+                if (event.key === '+' || event.key === '=') {
+                    var btnAdicionar = document.getElementById('add-vertex-button');
+                    if (btnAdicionar) {
+                        btnAdicionar.click();
+                    }
+                }
+
+                // Atalho 3: Tecla 'a' ou 'A' (Alterna modo de conexão/seleção)
+                if (event.key === 'a' || event.key === 'A') {
+                    var btnConexao = document.getElementById('connect-mode-button');
+                    if (btnConexao) {
+                        btnConexao.click();
                     }
                 }
             });
