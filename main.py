@@ -12,6 +12,7 @@ Funcionalidades:
 
 import os
 import base64
+import json
 from flask import send_file
 import dash
 import dash_cytoscape as cyto
@@ -201,17 +202,32 @@ def load_graph_data():
 
 
 def save_graph_data(is_weighted=True):
-    with open(GRAPH_FILE_PATH, 'w') as f:
-        f.write(f"{G.number_of_nodes()} {G.number_of_edges()}\n")
-        for source, target, data in G.edges(data=True):
-            s = data.get('real_source', source)
-            t = data.get('real_target', target)
+    linhas_arestas = []
+    
+    for source, target, data in G.edges(data=True):
+        s = data.get('real_source', source)
+        t = data.get('real_target', target)
+        peso = data.get('label', '1')
+        
+        # 1. Adiciona a aresta de ida (sempre)
+        if is_weighted:
+            linhas_arestas.append(f"{s} {t} {peso}")
+        else:
+            linhas_arestas.append(f"{s} {t}")
             
-            # Se for ponderado, salva a 3ª coluna. Se não for, salva apenas Origem e Destino!
+        # 2. A MÁGICA: Se for Não Orientado e não for um laço, obrigatoriamente salva a volta!
+        if not G.is_directed() and s != t:
             if is_weighted:
-                f.write(f"{s} {t} {data.get('label', '1')}\n")
+                linhas_arestas.append(f"{t} {s} {peso}")
             else:
-                f.write(f"{s} {t}\n")
+                linhas_arestas.append(f"{t} {s}")
+
+    with open(GRAPH_FILE_PATH, 'w') as f:
+        # O cabeçalho 'E' agora reflete EXATAMENTE o número de LINHAS do arquivo
+        f.write(f"{G.number_of_nodes()} {len(linhas_arestas)}\n")
+        
+        for linha in linhas_arestas:
+            f.write(linha + "\n")
 
 # =============================================================================
 # 3. Layout da Aplicação Dash
@@ -669,7 +685,6 @@ def main_callback(
                 elif G.has_node(novo_id):
                     msg = html.Span(f"Erro: O vértice '{novo_id}' já existe!", style={'color': 'red', 'fontWeight': 'bold'})
                 elif G.has_node(old_id):
-                    import networkx as nx
                     nx.relabel_nodes(G, {old_id: novo_id}, copy=False)
                     
                     arestas_incidentes = []
@@ -696,45 +711,69 @@ def main_callback(
 
     elif prop_id == 'toggle-direcao.value':
         is_directed = (toggle_direcao == 'orientado')
+
         if is_directed and not G.is_directed():
+            # NÃO ORIENTADO -> ORIENTADO (Expansão)
             novo_G = nx.DiGraph()
             novo_G.add_nodes_from(G.nodes(data=True))
             for u, v, attrs in G.edges(data=True):
-                s = attrs.get('real_source', u)
-                t = attrs.get('real_target', v)
-                novo_G.add_edge(s, t, **attrs)
+                
+                # 1. Cria a aresta original (Limpando fantasmas)
+                attrs_ida = attrs.copy()
+                attrs_ida['real_source'] = u
+                attrs_ida['real_target'] = v
+                novo_G.add_edge(u, v, **attrs_ida)
+                
+                # 2. Cria a aresta de volta espelhada (se não for laço)
+                if u != v:
+                    attrs_volta = attrs.copy()
+                    attrs_volta['real_source'] = v
+                    attrs_volta['real_target'] = u
+                    novo_G.add_edge(v, u, **attrs_volta)
+                    
             G = novo_G
-            msg = html.Span("Grafo alterado para Orientado.", style={'color': 'blue'})
+            msg = html.Span("Grafo alterado para Orientado (arestas desdobradas).", style={'color': 'blue'})
             graph_changed = True
+
         elif not is_directed and G.is_directed():
-            novo_G = nx.Graph()
-            novo_G.add_nodes_from(G.nodes(data=True))
+            # ORIENTADO -> NÃO ORIENTADO (Trava de Segurança)
+            conflito = False
             for u, v, data in G.edges(data=True):
-                try:
-                    peso_atual = int(data.get('label', '1'))
-                except ValueError:
-                    peso_atual = 1
-                if novo_G.has_edge(u, v):
-                    try:
-                        peso_existente = int(novo_G.edges[u, v].get('label', '1'))
-                    except ValueError:
-                        peso_existente = 1
-                    if peso_atual < peso_existente:
-                        novo_G.edges[u, v]['label'] = str(peso_atual)
-                        novo_G.edges[u, v]['real_source'] = u
-                        novo_G.edges[u, v]['real_target'] = v
-                else:
-                    data_copy = data.copy()
-                    data_copy['real_source'] = u
-                    data_copy['real_target'] = v
-                    novo_G.add_edge(u, v, **data_copy)
-            G = novo_G
-            msg = html.Span("Grafo alterado para Não Orientado.", style={'color': 'blue'})
-            graph_changed = True
+                # Se existe a volta, checa se os pesos são idênticos
+                if u != v and G.has_edge(v, u):
+                    peso_ida = data.get('label', '1')
+                    peso_volta = G.edges[v, u].get('label', '1')
+                    if peso_ida != peso_volta:
+                        conflito = True
+                        break
+            
+            if conflito:
+                msg = html.Span("Erro: Pesos divergentes em arestas de ida e volta. Unifique os pesos antes de converter.", style={'color': 'red', 'fontWeight': 'bold'})
+                direcao_output = 'orientado'
+            else:
+                novo_G = nx.Graph()
+                novo_G.add_nodes_from(G.nodes(data=True))
+                for u, v, data in G.edges(data=True):
+                    if not novo_G.has_edge(u, v):
+                        # Limpa os fantasmas na unificação também!
+                        data_limpa = data.copy()
+                        data_limpa['real_source'] = u
+                        data_limpa['real_target'] = v
+                        novo_G.add_edge(u, v, **data_limpa)
+                G = novo_G
+                msg = html.Span("Grafo alterado para Não Orientado (arestas unificadas).", style={'color': 'blue'})
+                graph_changed = True
 
     # --- AÇÃO QUANDO CLICA NO BOTÃO DE PESO DA TELA ---
     elif prop_id == 'toggle-peso.value':
-        msg = html.Span("Grafo alterado para Não Ponderado." if toggle_peso == 'sem_peso' else "Grafo alterado para Ponderado.", style={'color': 'blue'})
+        for u, v, data in G.edges(data=True):
+            data['label'] = '1'
+            
+        if toggle_peso == 'sem_peso':
+            msg = html.Span("Grafo alterado para Não Ponderado.", style={'color': 'blue'})
+        else:
+            msg = html.Span("Grafo alterado para Ponderado.", style={'color': 'blue'})
+            
         graph_changed = True
 
     elif prop_id == 'upload-data.contents':
@@ -746,16 +785,14 @@ def main_callback(
 
             arquivo_valido = True
             msg_erro = ""
-            arestas_vistas = set()
             vertices_unicos = set()
-            tem_ida_e_volta = False
             qtd_arestas_reais = 0
             v_header = 0
             e_header = 0
-            
-            # --- CONTADORES PARA VALIDAÇÃO DE PESOS ---
             qtd_com_peso = 0
             qtd_sem_peso = 0
+            
+            arestas_lidas = {} # Guarda as arestas na memória: (u, v) -> peso
 
             if not linhas:
                 arquivo_valido, msg_erro = False, "O arquivo está vazio."
@@ -768,12 +805,11 @@ def main_callback(
                         v_header = int(cabecalho[0])
                         e_header = int(cabecalho[1])
                     except ValueError:
-                        arquivo_valido, msg_erro = False, "O cabeçalho deve conter apenas números inteiros."
+                        arquivo_valido, msg_erro = False, "O cabeçalho deve conter apenas inteiros."
 
             if arquivo_valido:
                 for i, linha in enumerate(linhas[1:], start=2):
                     partes = linha.split()
-
                     if len(partes) not in [2, 3]:
                         arquivo_valido, msg_erro = False, f"Erro na linha {i}: A linha deve ter 2 ou 3 colunas."
                         break
@@ -781,44 +817,56 @@ def main_callback(
                     try:
                         u = int(partes[0])
                         v = int(partes[1])
+                        peso_str = '1'
                         if len(partes) == 3:
-                            peso = int(partes[2])
-                            qtd_com_peso += 1  # Conta aresta COM peso
+                            peso_str = str(int(partes[2]))
+                            qtd_com_peso += 1  
                         else:
-                            qtd_sem_peso += 1  # Conta aresta SEM peso
+                            qtd_sem_peso += 1  
                     except ValueError:
-                        arquivo_valido, msg_erro = False, f"Erro na linha {i}: Vértices e pesos devem ser números inteiros."
+                        arquivo_valido, msg_erro = False, f"Erro na linha {i}: Vértices e pesos devem ser inteiros."
                         break
 
                     vertices_unicos.add(str(u))
                     vertices_unicos.add(str(v))
                     qtd_arestas_reais += 1
-
-                    if (str(v), str(u)) in arestas_vistas:
-                        tem_ida_e_volta = True
-                    arestas_vistas.add((str(u), str(v)))
+                    
+                    # Salva no dicionário para cruzamento de dados depois
+                    arestas_lidas[(str(u), str(v))] = peso_str
 
             if arquivo_valido:
                 if qtd_arestas_reais != e_header:
                     arquivo_valido, msg_erro = False, f"Inconsistência: Cabeçalho diz {e_header} arestas, mas há {qtd_arestas_reais} lidas."
                 elif len(vertices_unicos) > v_header:
-                    arquivo_valido, msg_erro = False, f"Inconsistência: Cabeçalho diz {v_header} vértices, mas as arestas usam {len(vertices_unicos)} distintos."
-                # --- NOVA REGRA DO UPLOAD: MISTURA PROIBIDA ---
+                    arquivo_valido, msg_erro = False, f"Inconsistência: Cabeçalho diz {v_header} vértices, mas arestas usam {len(vertices_unicos)} distintos."
                 elif qtd_com_peso > 0 and qtd_sem_peso > 0:
-                    arquivo_valido, msg_erro = False, "Inconsistência: O arquivo mistura arestas COM peso e SEM peso. Utilize um único padrão para todo o arquivo."
+                    arquivo_valido, msg_erro = False, "Inconsistência: Mistura de arestas COM e SEM peso no mesmo arquivo."
 
             if arquivo_valido:
+                # --- DETECTOR DE SIMETRIA ---
+                is_symmetric = True
+                for (u, v), peso in arestas_lidas.items():
+                    if u == v:
+                        continue # Laço não influencia simetria
+                    # Se não tem a volta exata com o MESMO PESO, quebra a simetria
+                    if (v, u) not in arestas_lidas or arestas_lidas[(v, u)] != peso:
+                        is_symmetric = False
+                        break
+                
                 with open(GRAPH_FILE_PATH, 'w') as f:
                     f.write(decoded)
 
-                if tem_ida_e_volta and toggle_direcao == 'nao_orientado':
+                # Define o motor do NetworkX com base no que leu
+                if is_symmetric and qtd_arestas_reais > 0:
+                    G = nx.Graph()
+                    direcao_output = 'nao_orientado'
+                    msg_dir = " (Detectado Não Orientado por simetria)"
+                else:
                     G = nx.DiGraph()
                     direcao_output = 'orientado'
-                    msg_dir = " (Alterado para Orientado)"
-                else:
-                    msg_dir = ""
+                    msg_dir = " (Detectado Orientado)"
                     
-                # --- NOVO: AUTO-AJUSTE DA TELA BASEADO NO ARQUIVO LIDO ---
+                # Auto-ajuste do painel para pesos
                 if qtd_com_peso > 0:
                     peso_output = 'com_peso'
                     msg_peso = " Ponderado"
@@ -826,9 +874,13 @@ def main_callback(
                     peso_output = 'sem_peso'
                     msg_peso = " Não Ponderado"
                 else:
-                    msg_peso = "" # Caso o arquivo tenha 0 arestas
+                    msg_peso = ""
+                    # Se for vazio, assume Orientado por padrão para evitar falhas
+                    G = nx.DiGraph()
+                    direcao_output = 'orientado'
+                    msg_dir = " (Vazio, Orientado por padrão)"
 
-                msg = html.Span(f"Arquivo{msg_peso} carregado com sucesso!{msg_dir}", style={'color': 'green'})
+                msg = html.Span(f"Arquivo{msg_peso} carregado!{msg_dir}", style={'color': 'green'})
 
                 load_graph_data()
                 layout_output = {'name': 'circle', 'animate': True, 'animationDuration': 500}
@@ -964,10 +1016,12 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
                               'border-width': 4, 'border-color': '#f5a442', 'background-color': "#ffaf4d"}})
 
     # --- NOVO: APLICA AS CORES DA ANIMAÇÃO DO ALGORITMO ---
+    # --- NOVO: APLICA AS CORES DA ANIMAÇÃO DO ALGORITMO ---
     if snaps and current_frame is not None and current_frame < len(snaps):
         quadro = snaps[current_frame]
         cores = quadro.get('c', {})
         pi_dict = quadro.get('pi', {})
+        aresta_atual = quadro.get('aresta_atual') # <--- LÊ O LASER
 
         # Pinta os Vértices
         for no_id, cor in cores.items():
@@ -982,13 +1036,37 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
                     'style': {'background-color': '#212121', 'color': 'white', 'text-outline-color': 'white', 'border-color': '#212121'}
                 })
 
-        # Destaca a Árvore de Busca (Arestas) usando o π
+        # Destaca a Árvore de Busca Consolidada (Laranja)
         for filho, pai in pi_dict.items():
             if pai is not None:
+                # FIX DO BUG: Separa orientado de não orientado para não pintar ida e volta em grafos direcionados!
+                if direcao == 'orientado':
+                    seletor = f'edge[source = "{pai}"][target = "{filho}"]'
+                else:
+                    seletor = f'edge[source = "{pai}"][target = "{filho}"], edge[source = "{filho}"][target = "{pai}"]'
+                    
                 stylesheet.append({
-                    'selector': f'edge[source = "{pai}"][target = "{filho}"], edge[source = "{filho}"][target = "{pai}"]',
+                    'selector': seletor,
                     'style': {'line-color': '#FF9800', 'width': 4, 'target-arrow-color': '#FF9800'}
                 })
+
+        # NOVO VISUAL: Destaca a aresta exata sendo percorrida neste milissegundo (Vermelho)
+        if aresta_atual:
+            u, v = aresta_atual
+            if direcao == 'orientado':
+                seletor_atual = f'edge[source = "{u}"][target = "{v}"]'
+            else:
+                seletor_atual = f'edge[source = "{u}"][target = "{v}"], edge[source = "{v}"][target = "{u}"]'
+                
+            stylesheet.append({
+                'selector': seletor_atual,
+                'style': {
+                    'line-color': "#a71233", # Um vermelho elegante
+                    'width': 4, 
+                    'target-arrow-color': '#a71233', 
+                    'z-index': 9999
+                }
+            })
 
     return stylesheet
 

@@ -1,10 +1,11 @@
 import networkx as nx
 
 def bfs_snapshots(G, s):
+    s = str(s) # Blindagem de tipo
     c = {}
     d = {}
     pi = {}
-    snapshots = [] # A nossa "fita de filme"
+    snapshots = [] 
 
     for u in G.nodes():
         c[u] = "Branco"
@@ -16,7 +17,6 @@ def bfs_snapshots(G, s):
     pi[s] = None
     Q = [s]
 
-    # Foto Inicial
     snapshots.append({
         'acao': 'Inicio',
         'u': s,
@@ -30,7 +30,6 @@ def bfs_snapshots(G, s):
     while Q:
         u = Q.pop(0)
         
-        # Foto: Tirou da fila
         snapshots.append({
             'acao': 'Processando',
             'u': u,
@@ -48,21 +47,34 @@ def bfs_snapshots(G, s):
                 pi[v] = u
                 Q.append(v)
                 
-                # Foto: Achou um vizinho branco
+                # INSERIDO A ARESTA ATUAL AQUI
                 snapshots.append({
                     'acao': 'Descobrindo',
                     'u': u,
                     'v': v,
+                    'aresta_atual': (u, v),
                     'c': c.copy(),
                     'd': d.copy(),
                     'pi': pi.copy(),
                     'Q': list(Q),
-                    'descricao': f"Vértice {v} descoberto! Adicionado à fila com distância {d[v]}."
+                    'descricao': f"Vértice {v} descoberto! Adicionado à fila."
+                })
+            else:
+                # Feedback visual de aresta ignorada no BFS
+                snapshots.append({
+                    'acao': 'Ignorando',
+                    'u': u,
+                    'v': v,
+                    'aresta_atual': (u, v),
+                    'c': c.copy(),
+                    'd': d.copy(),
+                    'pi': pi.copy(),
+                    'Q': list(Q),
+                    'descricao': f"Aresta ignorada: Vértice {v} já foi descoberto."
                 })
 
         c[u] = "Preto"
         
-        # Foto: Terminou o nó
         snapshots.append({
             'acao': 'Finalizando',
             'u': u,
