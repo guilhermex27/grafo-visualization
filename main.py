@@ -38,9 +38,10 @@ BASE_STYLESHEET = [
         'selector': 'node',
         'style': {
             'label': 'data(label)',
+            'width': 40, 'height': 40,
             'text-valign': 'center', 'color': '#333',
             'text-outline-color': '#333', 'text-outline-width': '1px',
-            'background-color': 'white', 'border-width': 4, 'border-color': '#999998',
+            'background-color': 'white', 'border-width': 4, 'border-color': '#333',
             'transition-property': 'background-color, border-width, border-color, width, height',
             'transition-duration': '0.2s',
         }
@@ -371,6 +372,10 @@ def serve_layout():
                             'animationDuration': 500},
                     wheelSensitivity=0.1
                 ),
+                # --- O NOSSO MENSAGEIRO INVISÍVEL E O RASTREADOR AQUI ---
+                dcc.Input(id='shift-click-coords', type='text', style={'display': 'none'}, value=""),
+                dcc.Store(id='camera-tracker-dummy'), # O componente correto para guardar dados em background 
+
                 html.Div(id='empty-graph-message', style={'position': 'absolute', 'top': '10px',
                          'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none'}),
                 html.Div(id='keyboard-listener-dummy',
@@ -565,6 +570,7 @@ def _update_node_positions(cyto_elements):
     Input('toggle-direcao', 'value'),
     Input('toggle-peso', 'value'),  # <--- MUDOU DE STATE PARA INPUT (Altera o arquivo na hora)
     Input('btn-salvar-rotulo', 'n_clicks'),
+    Input('shift-click-coords', 'value'),
     State('cytoscape-graph', 'selectedNodeData'),
     State('cytoscape-graph', 'selectedEdgeData'),
     State('upload-data', 'filename'),
@@ -581,7 +587,7 @@ def _update_node_positions(cyto_elements):
     prevent_initial_call=True
 )
 def main_callback(
-    add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao, toggle_peso, btn_salvar_rotulo,
+    add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao, toggle_peso, btn_salvar_rotulo, shift_click_data,
     sel_nodes, sel_edges, filename, cyto_elements, source_node_id, connect_mode_on,
     aresta_edit_store_data, modal_input_value, snaps, modal_is_open, modal_rotulo_is_open, modal_input_rotulo, vertex_edit_store_data
 ):
@@ -621,6 +627,31 @@ def main_callback(
             G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
             msg = html.Span(f"Vértice '{new_id}' adicionado.", style={'color': 'green'})
             graph_changed = True
+
+    elif prop_id == 'shift-click-coords.value':
+        if snaps:
+            msg = html.Span("Bloqueado: Não é possível adicionar vértices durante a animação.", style={'color': 'red'})
+        elif modal_is_open or modal_rotulo_is_open:
+            msg = dash.no_update
+        elif shift_click_data:
+            partes = shift_click_data.split(',')
+            if len(partes) >= 2:
+                try:
+                    # O Javascript já fez todo o trabalho pesado de cálculo de câmera para nós!
+                    pos_x = float(partes[0])
+                    pos_y = float(partes[1])
+                    
+                    node_ids = {int(n) for n in G.nodes if str(n).isdigit()}
+                    new_id = 0
+                    while new_id in node_ids:
+                        new_id += 1
+                        
+                    G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
+                    
+                    msg = html.Span(f"Vértice '{new_id}' criado sob o cursor.", style={'color': 'green'})
+                    graph_changed = True
+                except ValueError:
+                    msg = dash.no_update
 
     elif prop_id == 'cytoscape-graph.tapNodeData':
         if connect_mode_on:
@@ -1736,6 +1767,22 @@ app.clientside_callback(
            'data-fade'),  # Apenas um output fantasma necessário
     Input('action-output-message', 'children'),
     prevent_initial_call=True
+)
+
+app.clientside_callback(
+    """
+    function(zoom, pan) {
+        // Proteção contra o "undefined" no carregamento inicial da página!
+        window.my_cyto_camera = {
+            zoom: zoom || 1.0, 
+            pan: pan || {x: 0, y: 0}
+        };
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output('camera-tracker-dummy', 'data'), 
+    Input('cytoscape-graph', 'zoom'),
+    Input('cytoscape-graph', 'pan')
 )
 
 
