@@ -156,37 +156,44 @@ def obter_propriedades_grafo(graph_obj):
     return ", ".join(props)
 
 
-def load_graph_data():
+def load_graph_data(from_upload=False):
     global G
+    config = {'is_directed': False, 'is_weighted': True, 'positions': {}}
+    
+    # 1. Lê a memória do último estado salvo
+    if os.path.exists('data/config.json'):
+        try:
+            with open('data/config.json', 'r') as f:
+                config = json.load(f)
+        except Exception:
+            pass
 
-    is_directed = G.is_directed() if hasattr(G, 'is_directed') else False
+    # Se não for um upload novo, recria o grafo com a direção que estava salva
+    if not from_upload:
+        G = nx.DiGraph() if config.get('is_directed', False) else nx.Graph()
 
     if not os.path.exists(GRAPH_FILE_PATH) or os.path.getsize(GRAPH_FILE_PATH) == 0:
-        G = nx.DiGraph() if is_directed else nx.Graph()
-        return
+        return config
 
     with open(GRAPH_FILE_PATH, 'r') as f:
-        lines = [line.strip()
-                 for line in f.read().splitlines() if line.strip()]
+        lines = [line.strip() for line in f.read().splitlines() if line.strip()]
 
-    G.clear()
     if not lines:
-        return
-
-    G = nx.DiGraph() if is_directed else nx.Graph()
+        return config
 
     try:
         header = lines.pop(0).split()
         num_nodes_header = int(header[0])
-        nodes_in_edges = set()
         for line in lines:
             parts = line.split()
             if len(parts) >= 2:
                 source, target = parts[0], parts[1]
                 weight = parts[2] if len(parts) > 2 else '1'
-                G.add_edge(source, target, label=weight)
-                nodes_in_edges.add(source)
-                nodes_in_edges.add(target)
+                
+                # Resgata de forma segura e guarda o sentido original
+                if G.is_directed() or not G.has_edge(source, target):
+                    G.add_edge(source, target, label=weight, real_source=source, real_target=target)
+                    
         nodes_to_add_count = num_nodes_header - len(G.nodes)
         if nodes_to_add_count > 0:
             i = 0
@@ -196,10 +203,19 @@ def load_graph_data():
                     G.add_node(node_id)
                     nodes_to_add_count -= 1
                 i += 1
+                
+        # 2. MÁGICA: Injeta as posições X e Y de volta nos vértices
+        if not from_upload:
+            pos_dict = config.get('positions', {})
+            for node_id in G.nodes():
+                if node_id in pos_dict:
+                    G.nodes[node_id]['position'] = pos_dict[node_id]
+
     except Exception as e:
-        print(f"Erro ao processar o arquivo de grafo: {e}")
+        print(f"Erro ao processar: {e}")
         G.clear()
 
+    return config
 
 def save_graph_data(is_weighted=True):
     linhas_arestas = []
@@ -209,13 +225,11 @@ def save_graph_data(is_weighted=True):
         t = data.get('real_target', target)
         peso = data.get('label', '1')
         
-        # 1. Adiciona a aresta de ida (sempre)
         if is_weighted:
             linhas_arestas.append(f"{s} {t} {peso}")
         else:
             linhas_arestas.append(f"{s} {t}")
             
-        # 2. A MÁGICA: Se for Não Orientado e não for um laço, obrigatoriamente salva a volta!
         if not G.is_directed() and s != t:
             if is_weighted:
                 linhas_arestas.append(f"{t} {s} {peso}")
@@ -223,11 +237,18 @@ def save_graph_data(is_weighted=True):
                 linhas_arestas.append(f"{t} {s}")
 
     with open(GRAPH_FILE_PATH, 'w') as f:
-        # O cabeçalho 'E' agora reflete EXATAMENTE o número de LINHAS do arquivo
         f.write(f"{G.number_of_nodes()} {len(linhas_arestas)}\n")
-        
         for linha in linhas_arestas:
             f.write(linha + "\n")
+            
+    # --- NOVO: SALVA AS POSIÇÕES E CONFIGURAÇÕES NO JSON ---
+    config = {
+        'is_directed': G.is_directed(),
+        'is_weighted': is_weighted,
+        'positions': {str(n): G.nodes[n].get('position', {'x': 0, 'y': 0}) for n in G.nodes}
+    }
+    with open('data/config.json', 'w') as f:
+        json.dump(config, f)
 
 # =============================================================================
 # 3. Layout da Aplicação Dash
@@ -241,11 +262,22 @@ server = app.server
 
 def serve_layout():
     os.makedirs(os.path.dirname(GRAPH_FILE_PATH), exist_ok=True)
-    load_graph_data()
+    config = load_graph_data() # <--- RECUPERA A MEMÓRIA
     initial_elements = nx_to_cytoscape(G)
 
+    tipo_dir_val = 'orientado' if config.get('is_directed', False) else 'nao_orientado'
+    tipo_peso_val = 'com_peso' if config.get('is_weighted', True) else 'sem_peso'
+
+    if config.get('positions') and initial_elements:
+        layout_inicial = {'name': 'preset'}
+    elif initial_elements:
+        layout_inicial = {'name': 'circle', 'animate': True, 'animationDuration': 500}
+    else:
+        layout_inicial = {'name': 'preset'}
+
     tipo_dir_init = "Orientado" if G.is_directed() else "Não Orientado"
-    tipo_peso_init = "Ponderado"
+    tipo_peso_init = "Com Peso" if any('label' in data for _, _, data in G.edges(data=True)) else "Sem Peso"
+
     propriedades_init = obter_propriedades_grafo(G)
     graus = sum([d for n, d in G.degree()])
 
@@ -335,7 +367,7 @@ def serve_layout():
                 cyto.Cytoscape(
                     id='cytoscape-graph', elements=initial_elements, stylesheet=BASE_STYLESHEET,
                     style={'width': '100%', 'height': '100%'},
-                    layout={'name': 'circle', 'animate': True,
+                    layout={'name': 'preset', 'animate': True,
                             'animationDuration': 500},
                     wheelSensitivity=0.1
                 ),
@@ -460,13 +492,12 @@ def serve_layout():
 
                     # CARTÃO 4: Configurações
                     html.Div(className='card shadow-sm border-0 p-3', children=[
-                        html.H6("Configurações",
-                                className="fw-bold mb-3 text-center"),
+                        html.H6("Configurações", className="fw-bold mb-3 text-center"),
                         dcc.RadioItems(id='toggle-direcao', options=[{'label': ' Não Orientado', 'value': 'nao_orientado'}, {'label': ' Orientado', 'value': 'orientado'}],
-                                       value='nao_orientado', labelStyle={'display': 'block', 'textAlign': 'left', 'marginBottom': '5px'}, className="text-secondary"),
+                                       value=tipo_dir_val, labelStyle={'display': 'block', 'textAlign': 'left', 'marginBottom': '5px'}, className="text-secondary"), # <--- AQUI (tipo_dir_val)
                         html.Hr(className="my-2"),
                         dcc.RadioItems(id='toggle-peso', options=[{'label': ' Com Peso', 'value': 'com_peso'}, {
-                                       'label': ' Sem Peso', 'value': 'sem_peso'}], value='com_peso', labelStyle={'display': 'block', 'textAlign': 'left'}, className="text-secondary")
+                                       'label': ' Sem Peso', 'value': 'sem_peso'}], value=tipo_peso_val, labelStyle={'display': 'block', 'textAlign': 'left'}, className="text-secondary") # <--- AQUI (tipo_peso_val)
                     ]),
 
                     # CARTÃO 5: Algoritmos
@@ -882,8 +913,8 @@ def main_callback(
 
                 msg = html.Span(f"Arquivo{msg_peso} carregado!{msg_dir}", style={'color': 'green'})
 
-                load_graph_data()
-                layout_output = {'name': 'circle', 'animate': True, 'animationDuration': 500}
+                load_graph_data(from_upload=True)
+                layout_output = {'name': 'preset', 'animate': True, 'animationDuration': 500}
                 new_source_node = None
                 graph_changed = True
             else:
