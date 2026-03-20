@@ -11,6 +11,7 @@ Funcionalidades:
 '''
 
 import os
+import math
 import base64
 import json
 from flask import send_file
@@ -49,12 +50,15 @@ BASE_STYLESHEET = [
     {
         'selector': 'edge',
         'style': {
-            'label': 'data(label)', 'color': '#333',
-
+            'label': 'data(label)', 
+            'color': '#333',
+            'line-color': '#333',    
+            'target-arrow-color': '#333',
+            'arrow-scale': 1.5,
             'text-background-color': '#ffffff',
             'text-background-opacity': 1,
             'text-background-shape': 'roundrectangle',
-            'text-background-padding': '5px',
+            'text-background-padding': '4px',
             'text-wrap': 'wrap',
             'text-z-index': 10,
             'text-outline-color': '#333', 'text-outline-width': '0.4px',
@@ -66,7 +70,11 @@ BASE_STYLESHEET = [
         'selector': ':selected',
         'style': {
             'border-width': 4, 'border-color': '#42a5f5',
-            'background-color': '#64b5f6'
+            'background-color': '#64b5f6',
+            
+            'line-color': '#64b5f6',        
+            'target-arrow-color': '#64b5f6', 
+            'z-index': 9999
         }
     }
 ]
@@ -102,14 +110,12 @@ def obter_propriedades_grafo(graph_obj):
 
     props = []
 
-    # 1. Simples vs Pseudografo (Checa laços)
     tem_lacos = nx.number_of_selfloops(graph_obj) > 0
     if tem_lacos:
         props.append("Pseudografo")
     else:
         props.append("Simples")
 
-    # 2. Conectividade e Ciclos
     if graph_obj.is_directed():
         if nx.is_strongly_connected(graph_obj):
             props.append("Fortemente Conexo")
@@ -131,21 +137,30 @@ def obter_propriedades_grafo(graph_obj):
         elif nx.is_forest(graph_obj):
             props.append("Floresta")
 
-    # 3. Bipartido
     if nx.is_bipartite(graph_obj):
         props.append("Bipartido")
 
-    # 4. Regular (Todos os nós têm o mesmo grau)
-    graus = [d for n, d in graph_obj.degree()]
-    if graus:
-        qtd_graus_distintos = len(set(graus))
+    if graph_obj.is_directed():
+        degre_in = [d for n, d in graph_obj.in_degree()]
+        degre_out = [d for n, d in graph_obj.out_degree()]
+        if degre_in and degre_out:
+            graus_distintos_in = len(set(degre_in))
+            graus_distintos_out = len(set(degre_out))
 
-        if qtd_graus_distintos == 1:
-            props.append("Regular")
-        else:
-            props.append("Irregular")
+            if graus_distintos_in == 1 and graus_distintos_out == 1 and degre_in[0] == degre_out[0]:
+                props.append("Regular")
+            else:
+                props.append("Irregular")
+    else:
+        graus = [d for n, d in graph_obj.degree()]
+        if graus:
+            qtd_graus_distintos = len(set(graus))
 
-    # 5. Completo
+            if qtd_graus_distintos == 1:
+                props.append("Regular")
+            else:
+                props.append("Irregular")
+
     n = graph_obj.number_of_nodes()
     e = graph_obj.number_of_edges()
     if n > 1 and not tem_lacos:
@@ -160,8 +175,7 @@ def obter_propriedades_grafo(graph_obj):
 def load_graph_data(from_upload=False):
     global G
     config = {'is_directed': False, 'is_weighted': True, 'positions': {}}
-    
-    # 1. Lê a memória do último estado salvo
+
     if os.path.exists('data/config.json'):
         try:
             with open('data/config.json', 'r') as f:
@@ -169,7 +183,6 @@ def load_graph_data(from_upload=False):
         except Exception:
             pass
 
-    # Se não for um upload novo, recria o grafo com a direção que estava salva
     if not from_upload:
         G = nx.DiGraph() if config.get('is_directed', False) else nx.Graph()
 
@@ -177,7 +190,8 @@ def load_graph_data(from_upload=False):
         return config
 
     with open(GRAPH_FILE_PATH, 'r') as f:
-        lines = [line.strip() for line in f.read().splitlines() if line.strip()]
+        lines = [line.strip()
+                 for line in f.read().splitlines() if line.strip()]
 
     if not lines:
         return config
@@ -190,11 +204,11 @@ def load_graph_data(from_upload=False):
             if len(parts) >= 2:
                 source, target = parts[0], parts[1]
                 weight = parts[2] if len(parts) > 2 else '1'
-                
-                # Resgata de forma segura e guarda o sentido original
+
                 if G.is_directed() or not G.has_edge(source, target):
-                    G.add_edge(source, target, label=weight, real_source=source, real_target=target)
-                    
+                    G.add_edge(source, target, label=weight,
+                               real_source=source, real_target=target)
+
         nodes_to_add_count = num_nodes_header - len(G.nodes)
         if nodes_to_add_count > 0:
             i = 0
@@ -204,8 +218,7 @@ def load_graph_data(from_upload=False):
                     G.add_node(node_id)
                     nodes_to_add_count -= 1
                 i += 1
-                
-        # 2. MÁGICA: Injeta as posições X e Y de volta nos vértices
+
         if not from_upload:
             pos_dict = config.get('positions', {})
             for node_id in G.nodes():
@@ -218,19 +231,20 @@ def load_graph_data(from_upload=False):
 
     return config
 
+
 def save_graph_data(is_weighted=True):
     linhas_arestas = []
-    
+
     for source, target, data in G.edges(data=True):
         s = data.get('real_source', source)
         t = data.get('real_target', target)
         peso = data.get('label', '1')
-        
+
         if is_weighted:
             linhas_arestas.append(f"{s} {t} {peso}")
         else:
             linhas_arestas.append(f"{s} {t}")
-            
+
         if not G.is_directed() and s != t:
             if is_weighted:
                 linhas_arestas.append(f"{t} {s} {peso}")
@@ -241,7 +255,7 @@ def save_graph_data(is_weighted=True):
         f.write(f"{G.number_of_nodes()} {len(linhas_arestas)}\n")
         for linha in linhas_arestas:
             f.write(linha + "\n")
-            
+
     # --- NOVO: SALVA AS POSIÇÕES E CONFIGURAÇÕES NO JSON ---
     config = {
         'is_directed': G.is_directed(),
@@ -263,29 +277,44 @@ server = app.server
 
 def serve_layout():
     os.makedirs(os.path.dirname(GRAPH_FILE_PATH), exist_ok=True)
-    config = load_graph_data() # <--- RECUPERA A MEMÓRIA
+    config = load_graph_data()  # <--- RECUPERA A MEMÓRIA
     initial_elements = nx_to_cytoscape(G)
 
-    tipo_dir_val = 'orientado' if config.get('is_directed', False) else 'nao_orientado'
-    tipo_peso_val = 'com_peso' if config.get('is_weighted', True) else 'sem_peso'
+    tipo_dir_val = 'orientado' if config.get(
+        'is_directed', False) else 'nao_orientado'
+    tipo_peso_val = 'com_peso' if config.get(
+        'is_weighted', True) else 'sem_peso'
 
     if config.get('positions') and initial_elements:
         layout_inicial = {'name': 'preset'}
     elif initial_elements:
-        layout_inicial = {'name': 'circle', 'animate': True, 'animationDuration': 500}
+        layout_inicial = {'name': 'circle',
+                          'animate': True, 'animationDuration': 500}
     else:
         layout_inicial = {'name': 'preset'}
 
     tipo_dir_init = "Orientado" if G.is_directed() else "Não Orientado"
-    tipo_peso_init = "Com Peso" if any('label' in data for _, _, data in G.edges(data=True)) else "Sem Peso"
+    tipo_peso_init = "Com Peso" if any(
+        'label' in data for _, _, data in G.edges(data=True)) else "Sem Peso"
 
     propriedades_init = obter_propriedades_grafo(G)
-    graus = sum([d for n, d in G.degree()])
+    
+    if G.is_directed():
+        soma_in = sum([d for n, d in G.in_degree()])
+        soma_out = sum([d for n, d in G.out_degree()])
+        graus_text = [
+            html.B("Soma dos Graus (Entrada): "), f"{soma_in}", html.Br(),
+            html.B("Soma dos Graus (Saída): "), f"{soma_out}", html.Br()
+        ]
+    else:
+        graus_text = [
+            html.B("Soma dos Graus: "), f"{sum([d for n, d in G.degree()])}", html.Br()
+        ]
 
     initial_info_children = [
         html.B("Vértices: "), f"{G.number_of_nodes()}", html.Br(),
-        html.B("Arestas: "), f"{G.number_of_edges()}", html.Br(),
-        html.B("Soma dos Graus: "), f"{graus}", html.Br(),
+        html.B("Arestas: "), f"{G.number_of_edges()}", html.Br()
+    ] + graus_text + [
         html.B("Direção: "), tipo_dir_init, html.Br(),
         html.B("Peso: "), tipo_peso_init, html.Br(),
         html.B("Propriedades: "), propriedades_init
@@ -333,37 +362,35 @@ def serve_layout():
         # --- LINHA 1: CABEÇALHO ---
         dbc.Row(id='top-buttons-container', className="align-items-center mb-3 mt-2", style={'transition': 'opacity 0.3s'}, children=[
 
-            # Coluna do Título (ocupa 8/12)
             dbc.Col(html.H2("Editor de Grafo Interativo", className="m-0 fw-bold",
-                    style={'color': '#333', 'paddingLeft': '10px'}), width=8),
+                    style={'color': '#111', 'paddingLeft': '10px'}), width=8),
 
-            # Coluna dos Botões (ocupa 4/12 e alinha tudo no centro verticalmente e à direita horizontalmente)
-            dbc.Col(className="d-flex justify-content-end align-items-center pe-3",  width=4, children=[
+            dbc.Col(className="d-flex justify-content-between align-items-center pe-4",  width=4, children=[
 
                 html.Div(className='image-container', children=[
                     html.Button(
-                        id='home-button', style={'backgroundImage': 'url(assets/home.png)'})
+                        id='home-button', style={'backgroundImage': 'url(assets/icons/home.svg)'})
                 ]),
                 html.Div(className='image-container', style={'transform': 'translateY(7px)'}, children=[
                     html.A(id="download-link", href="/download/graph.txt", children=[
                         html.Button(
-                            style={'backgroundImage': 'url(assets/download.png)'})
+                            style={'backgroundImage': 'url(assets/icons/download.svg)', 'height': '40px', 'marginBottom': '12px'})
                     ])
                 ]),
                 html.Div(className='image-container', children=[
                     dcc.Upload(id='upload-data', style={'display': 'flex'}, children=[
                         html.Button(
-                            style={'backgroundImage': 'url(assets/upload.png)'})
+                            style={'backgroundImage': 'url(assets/icons/upload.svg)'})
                     ])
                 ])
             ])
         ]),
 
         # LINHA 2: GRAFO E PAINEL
-        # Adicionado overflowX: hidden para não criar barra de rolagem quando o painel deslizar pra fora
+
         dbc.Row(style={'margin': '0', 'position': 'relative', 'overflowX': 'hidden'}, children=[
 
-            # LADO ESQUERDO: O GRAFO (Agora sempre fixo em 12 colunas, nunca mais muda de tamanho!)
+            # LADO ESQUERDO: O GRAFO 
             dbc.Col(id='coluna-grafo', width=12, style={'position': 'relative', 'border': '1px solid #ccc', 'backgroundColor': '#fff', 'height': '85vh', 'padding': '0'}, children=[
                 cyto.Cytoscape(
                     id='cytoscape-graph', elements=initial_elements, stylesheet=BASE_STYLESHEET,
@@ -372,9 +399,10 @@ def serve_layout():
                             'animationDuration': 500},
                     wheelSensitivity=0.1
                 ),
-                # --- O NOSSO MENSAGEIRO INVISÍVEL E O RASTREADOR AQUI ---
-                dcc.Input(id='shift-click-coords', type='text', style={'display': 'none'}, value=""),
-                dcc.Store(id='camera-tracker-dummy'), # O componente correto para guardar dados em background 
+
+                dcc.Input(id='shift-click-coords', type='text',
+                          style={'display': 'none'}, value=""),
+                dcc.Store(id='camera-tracker-dummy'),
 
                 html.Div(id='empty-graph-message', style={'position': 'absolute', 'top': '10px',
                          'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none'}),
@@ -403,7 +431,7 @@ def serve_layout():
                 ]),
 
                 dbc.Card(id='card-execucao-algo', className="card shadow border-success p-0", style={
-                    'display': 'none', 'position': 'absolute', 'top': '10px', 'right': '10px', 'zIndex': 50,
+                    'display': 'none', 'position': 'absolute', 'top': '10px', 'right': '0px', 'zIndex': 105,
                     'backgroundColor': 'rgba(255, 255, 255, 0.95)', 'minWidth': '280px', 'maxWidth': '320px',
                     'borderWidth': '2px', 'borderRadius': '8px', 'overflow': 'hidden'
                 }, children=[
@@ -422,13 +450,13 @@ def serve_layout():
 
                     html.Div(className='d-flex justify-content-around mb-3 w-100 px-3', children=[
                         html.Button(
-                            id='btn-stop-algo', style={'backgroundImage': 'url(assets/stop.svg)'}),
+                            id='btn-stop-algo', style={'backgroundImage': 'url(assets/icons/stop.svg)'}),
                         html.Button(
-                            id='btn-prev-algo', style={'backgroundImage': 'url(assets/previous.svg)'}),
+                            id='btn-prev-algo', style={'backgroundImage': 'url(assets/icons/previous.svg)'}),
                         html.Button(
-                            id='btn-play-algo', style={'backgroundImage': 'url(assets/play.svg)'}),
+                            id='btn-play-algo', style={'backgroundImage': 'url(assets/icons/play.svg)'}),
                         html.Button(
-                            id='btn-step-algo', style={'backgroundImage': 'url(assets/next.svg)'}),
+                            id='btn-step-algo', style={'backgroundImage': 'url(assets/icons/next.svg)'}),
                     ]),
 
                     html.Div(className='text-center fw-bold text-dark mb-2',
@@ -449,7 +477,7 @@ def serve_layout():
                 ]),
             ]),
 
-            # LADO DIREITO: O PAINEL (Agora com classes Bootstrap)
+            # LADO DIREITO: O PAINEL
             html.Div(id='coluna-painel', style={
                 'position': 'absolute', 'right': '0', 'top': '0',
                 'width': '300px', 'height': '85vh', 'padding': '0',
@@ -462,7 +490,6 @@ def serve_layout():
                 ]),
 
                 # CONTEÚDO DO PAINEL
-                # Usamos d-flex, flex-column e gap-3 para dar o espaçamento simétrico perfeito
                 html.Div(id='conteudo-paineis', className='d-flex flex-column gap-3 p-3 h-100', style={'backgroundColor': '#f4f4f9', 'overflowY': 'auto', 'boxSizing': 'border-box', 'borderLeft': '1px solid #ccc'}, children=[
 
                     # CARTÃO 1: Vértice
@@ -497,12 +524,13 @@ def serve_layout():
 
                     # CARTÃO 4: Configurações
                     html.Div(className='card shadow-sm border-0 p-3', children=[
-                        html.H6("Configurações", className="fw-bold mb-3 text-center"),
+                        html.H6("Configurações",
+                                className="fw-bold mb-3 text-center"),
                         dcc.RadioItems(id='toggle-direcao', options=[{'label': ' Não Orientado', 'value': 'nao_orientado'}, {'label': ' Orientado', 'value': 'orientado'}],
-                                       value=tipo_dir_val, labelStyle={'display': 'block', 'textAlign': 'left', 'marginBottom': '5px'}, className="text-secondary"), # <--- AQUI (tipo_dir_val)
+                                       value=tipo_dir_val, labelStyle={'display': 'block', 'textAlign': 'left', 'marginBottom': '5px'}, className="text-secondary"),  # <--- AQUI (tipo_dir_val)
                         html.Hr(className="my-2"),
                         dcc.RadioItems(id='toggle-peso', options=[{'label': ' Com Peso', 'value': 'com_peso'}, {
-                                       'label': ' Sem Peso', 'value': 'sem_peso'}], value=tipo_peso_val, labelStyle={'display': 'block', 'textAlign': 'left'}, className="text-secondary") # <--- AQUI (tipo_peso_val)
+                                       'label': ' Sem Peso', 'value': 'sem_peso'}], value=tipo_peso_val, labelStyle={'display': 'block', 'textAlign': 'left'}, className="text-secondary")  # <--- AQUI (tipo_peso_val)
                     ]),
 
                     # CARTÃO 5: Algoritmos
@@ -520,12 +548,10 @@ def serve_layout():
             ])
         ]),
         html.Div(id='action-output-message', className="w-100 text-center mt-2", style={
-            # SEM position: absolute! Ele flui naturalmente para debaixo do grafo.
-            # Mantém o espaço reservado para a tela não dar "soquinhos" quando o texto aparece/some
             'minHeight': '30px',
             'pointerEvents': 'none',
             'fontWeight': 'bold',
-            'color': '#444',         # Cinza escuro elegante
+            'color': '#111',  
             'fontSize': '15px',
             'whiteSpace': 'nowrap'
         })
@@ -558,7 +584,8 @@ def _update_node_positions(cyto_elements):
     Output('toggle-direcao', 'value'),
     Output('upload-data', 'contents'),
     Output('texto-info-grafo', 'children'),
-    Output('toggle-peso', 'value'), # <--- NOVO SAÍDA (Permite o Python mudar o botão sozinho)
+    # <--- NOVO SAÍDA (Permite o Python mudar o botão sozinho)
+    Output('toggle-peso', 'value'),
     Input('add-vertex-button', 'n_clicks'),
     Input('delete-selected-button', 'n_clicks'),
     Input('clear-all-button', 'n_clicks'),
@@ -568,7 +595,8 @@ def _update_node_positions(cyto_elements):
     Input('btn-salvar-peso', 'n_clicks'),
     Input('btn-hidden-center', 'n_clicks'),
     Input('toggle-direcao', 'value'),
-    Input('toggle-peso', 'value'),  # <--- MUDOU DE STATE PARA INPUT (Altera o arquivo na hora)
+    # <--- MUDOU DE STATE PARA INPUT (Altera o arquivo na hora)
+    Input('toggle-peso', 'value'),
     Input('btn-salvar-rotulo', 'n_clicks'),
     Input('shift-click-coords', 'value'),
     State('cytoscape-graph', 'selectedNodeData'),
@@ -605,11 +633,12 @@ def main_callback(
     graph_changed = False
     direcao_output = dash.no_update
     upload_reset = dash.no_update
-    peso_output = dash.no_update # <--- NOVO CONTROLE
+    peso_output = dash.no_update  # <--- NOVO CONTROLE
 
     if prop_id == 'add-vertex-button.n_clicks':
         if snaps:
-            msg = html.Span("Bloqueado: Não é possível adicionar vértices durante a animação.", style={'color': 'red'})
+            msg = html.Span(
+                "Bloqueado: Não é possível adicionar vértices durante a animação.", style={'color': 'red'})
         elif modal_is_open or modal_rotulo_is_open:
             msg = dash.no_update
         else:
@@ -625,12 +654,24 @@ def main_callback(
             pos_y = 80 + (linha * 70)
 
             G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
-            msg = html.Span(f"Vértice '{new_id}' adicionado.", style={'color': 'green'})
+            msg = html.Span(f"Vértice '{new_id}' adicionado.", style={
+                            'color': 'green'})
             graph_changed = True
+
+            add_v_val = add_v if add_v else 0
+            layout_output = {
+                'name': 'preset',
+                'fit': True,
+                'padding': 30,
+                'animate': True,
+                'animationDuration': 100,
+                'refresh_trigger': f"fit_add_{add_v_val}"
+            }
 
     elif prop_id == 'shift-click-coords.value':
         if snaps:
-            msg = html.Span("Bloqueado: Não é possível adicionar vértices durante a animação.", style={'color': 'red'})
+            msg = html.Span(
+                "Bloqueado: Não é possível adicionar vértices durante a animação.", style={'color': 'red'})
         elif modal_is_open or modal_rotulo_is_open:
             msg = dash.no_update
         elif shift_click_data:
@@ -640,15 +681,16 @@ def main_callback(
                     # O Javascript já fez todo o trabalho pesado de cálculo de câmera para nós!
                     pos_x = float(partes[0])
                     pos_y = float(partes[1])
-                    
+
                     node_ids = {int(n) for n in G.nodes if str(n).isdigit()}
                     new_id = 0
                     while new_id in node_ids:
                         new_id += 1
-                        
+
                     G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
-                    
-                    msg = html.Span(f"Vértice '{new_id}' criado sob o cursor.", style={'color': 'green'})
+
+                    msg = html.Span(f"Vértice '{new_id}' adicionado.", style={
+                                    'color': 'green'})
                     graph_changed = True
                 except ValueError:
                     msg = dash.no_update
@@ -659,23 +701,30 @@ def main_callback(
                 target_node_id = tapped_node_data['id']
                 if not source_node_id:
                     new_source_node = target_node_id
-                    msg = html.Span(f"Vértice de origem {target_node_id} selecionado.", style={'color': '#f5a442'})
+                    msg = html.Span(f"Vértice de origem {target_node_id} selecionado.", style={
+                                    'color': '#f5a442'})
                 elif source_node_id == target_node_id:
                     if G.has_edge(source_node_id, target_node_id):
-                        msg = html.Span("Laço já existe neste vértice.", style={'color': 'orange'})
+                        msg = html.Span("Laço já existe neste vértice.", style={
+                                        'color': 'orange'})
                     else:
                         G.add_edge(source_node_id, target_node_id, label='1')
-                        G.edges[source_node_id, target_node_id]['real_source'] = source_node_id
-                        G.edges[source_node_id, target_node_id]['real_target'] = target_node_id
-                        msg = html.Span(f"Laço criado no vértice {source_node_id}.", style={'color': 'green'})
+                        G.edges[source_node_id,
+                                target_node_id]['real_source'] = source_node_id
+                        G.edges[source_node_id,
+                                target_node_id]['real_target'] = target_node_id
+                        msg = html.Span(f"Laço criado no vértice {source_node_id}.", style={
+                                        'color': 'green'})
                         graph_changed = True
                     new_source_node = None
                 else:
                     if G.has_edge(source_node_id, target_node_id):
-                        msg = html.Span("Aresta já existe.", style={'color': 'orange'})
+                        msg = html.Span("Aresta já existe.",
+                                        style={'color': 'orange'})
                     else:
                         G.add_edge(source_node_id, target_node_id, label='1')
-                        msg = html.Span(f"Aresta de {source_node_id} a {target_node_id} criada.", style={'color': 'green'})
+                        msg = html.Span(f"Aresta de {source_node_id} a {target_node_id} criada.", style={
+                                        'color': 'green'})
                         graph_changed = True
                     new_source_node = None
         else:
@@ -691,29 +740,36 @@ def main_callback(
 
     elif prop_id == 'delete-selected-button.n_clicks':
         if snaps:
-            msg = html.Span("Bloqueado: Não é possível deletar durante a animação.", style={'color': 'red'})
+            msg = html.Span(
+                "Bloqueado: Não é possível deletar durante a animação.", style={'color': 'red'})
         elif modal_is_open or modal_rotulo_is_open:
             msg = dash.no_update
         elif not connect_mode_on and (sel_nodes or sel_edges):
-            nodes_to_remove = {n['id'] for n in sel_nodes} if sel_nodes else set()
-            edges_to_remove = [(e['source'], e['target']) for e in sel_edges] if sel_edges else []
+            nodes_to_remove = {n['id']
+                               for n in sel_nodes} if sel_nodes else set()
+            edges_to_remove = [(e['source'], e['target'])
+                               for e in sel_edges] if sel_edges else []
             G.remove_nodes_from(nodes_to_remove)
             G.remove_edges_from(edges_to_remove)
-            msg = html.Span("Elemento(s) removido(s).", style={'color': 'green'})
+            msg = html.Span("Elemento(s) removido(s).",
+                            style={'color': 'green'})
             graph_changed = True
             if source_node_id in nodes_to_remove:
                 new_source_node = None
 
     elif prop_id == 'clear-all-button.n_clicks':
         if snaps:
-            msg = html.Span("Bloqueado: Não é possível limpar a tela durante a animação.", style={'color': 'red'})
+            msg = html.Span(
+                "Bloqueado: Não é possível limpar a tela durante a animação.", style={'color': 'red'})
         elif modal_is_open or modal_rotulo_is_open:
             msg = dash.no_update
         elif not G.nodes:
-            msg = html.Span(f"O grafo já está vazio. (Ação {clear_all})", style={'color': 'orange'})
+            msg = html.Span(f"O grafo já está vazio. (Ação {clear_all})", style={
+                            'color': 'orange'})
         else:
             G.clear()
-            msg = html.Span(f"Grafo completamente limpo. (Ação {clear_all})", style={'color': 'green'})
+            msg = html.Span(f"Grafo completamente limpo. (Ação {clear_all})", style={
+                            'color': 'green'})
             graph_changed = True
             new_source_node = None
 
@@ -728,10 +784,12 @@ def main_callback(
 
                 if G.has_edge(src, tgt):
                     G.edges[src, tgt]['label'] = str(novo_peso_int)
-                    msg = html.Span(f"Peso atualizado para {novo_peso_int}", style={'color': 'green'})
+                    msg = html.Span(f"Peso atualizado para {novo_peso_int}", style={
+                                    'color': 'green'})
                     graph_changed = True
             except ValueError:
-                msg = html.Span("Erro: O peso deve ser um número inteiro.", style={'color': 'red'})
+                msg = html.Span(
+                    "Erro: O peso deve ser um número inteiro.", style={'color': 'red'})
 
     elif prop_id == 'btn-salvar-rotulo.n_clicks':
         if vertex_edit_store_data and modal_input_rotulo is not None:
@@ -741,18 +799,22 @@ def main_callback(
             try:
                 novo_id_int = int(novo_id)
                 if novo_id_int < 0:
-                    msg = html.Span("Erro: O ID deve ser positivo.", style={'color': 'red'})
+                    msg = html.Span(
+                        "Erro: O ID deve ser positivo.", style={'color': 'red'})
                 elif novo_id == old_id:
                     msg = dash.no_update
                 elif G.has_node(novo_id):
-                    msg = html.Span(f"Erro: O vértice '{novo_id}' já existe!", style={'color': 'red', 'fontWeight': 'bold'})
+                    msg = html.Span(f"Erro: O vértice '{novo_id}' já existe!", style={
+                                    'color': 'red', 'fontWeight': 'bold'})
                 elif G.has_node(old_id):
                     nx.relabel_nodes(G, {old_id: novo_id}, copy=False)
-                    
+
                     arestas_incidentes = []
                     if G.is_directed():
-                        arestas_incidentes.extend(G.out_edges(novo_id, data=True)) 
-                        arestas_incidentes.extend(G.in_edges(novo_id, data=True))  
+                        arestas_incidentes.extend(
+                            G.out_edges(novo_id, data=True))
+                        arestas_incidentes.extend(
+                            G.in_edges(novo_id, data=True))
                     else:
                         arestas_incidentes.extend(G.edges(novo_id, data=True))
 
@@ -761,15 +823,17 @@ def main_callback(
                             data['real_source'] = novo_id
                         if data.get('real_target') == old_id:
                             data['real_target'] = novo_id
-                            
-                    msg = html.Span(f"Vértice '{old_id}' alterado para '{novo_id}'.", style={'color': 'green'})
+
+                    msg = html.Span(f"Vértice '{old_id}' alterado para '{novo_id}'.", style={
+                                    'color': 'green'})
                     graph_changed = True
-                    
+
                     if source_node_id == old_id:
                         new_source_node = novo_id
-                        
+
             except ValueError:
-                msg = html.Span("Erro: O ID deve ser um número inteiro.", style={'color': 'red'})
+                msg = html.Span(
+                    "Erro: O ID deve ser um número inteiro.", style={'color': 'red'})
 
     elif prop_id == 'toggle-direcao.value':
         is_directed = (toggle_direcao == 'orientado')
@@ -779,22 +843,23 @@ def main_callback(
             novo_G = nx.DiGraph()
             novo_G.add_nodes_from(G.nodes(data=True))
             for u, v, attrs in G.edges(data=True):
-                
+
                 # 1. Cria a aresta original (Limpando fantasmas)
                 attrs_ida = attrs.copy()
                 attrs_ida['real_source'] = u
                 attrs_ida['real_target'] = v
                 novo_G.add_edge(u, v, **attrs_ida)
-                
+
                 # 2. Cria a aresta de volta espelhada (se não for laço)
                 if u != v:
                     attrs_volta = attrs.copy()
                     attrs_volta['real_source'] = v
                     attrs_volta['real_target'] = u
                     novo_G.add_edge(v, u, **attrs_volta)
-                    
+
             G = novo_G
-            msg = html.Span("Grafo alterado para Orientado (arestas desdobradas).", style={'color': 'blue'})
+            msg = html.Span("Grafo alterado para Orientado (arestas desdobradas).", style={
+                            'color': 'blue'})
             graph_changed = True
 
         elif not is_directed and G.is_directed():
@@ -808,9 +873,10 @@ def main_callback(
                     if peso_ida != peso_volta:
                         conflito = True
                         break
-            
+
             if conflito:
-                msg = html.Span("Erro: Pesos divergentes em arestas de ida e volta. Unifique os pesos antes de converter.", style={'color': 'red', 'fontWeight': 'bold'})
+                msg = html.Span("Erro: Pesos divergentes em arestas de ida e volta. Unifique os pesos antes de converter.", style={
+                                'color': 'red', 'fontWeight': 'bold'})
                 direcao_output = 'orientado'
             else:
                 novo_G = nx.Graph()
@@ -823,19 +889,22 @@ def main_callback(
                         data_limpa['real_target'] = v
                         novo_G.add_edge(u, v, **data_limpa)
                 G = novo_G
-                msg = html.Span("Grafo alterado para Não Orientado (arestas unificadas).", style={'color': 'blue'})
+                msg = html.Span("Grafo alterado para Não Orientado (arestas unificadas).", style={
+                                'color': 'blue'})
                 graph_changed = True
 
     # --- AÇÃO QUANDO CLICA NO BOTÃO DE PESO DA TELA ---
     elif prop_id == 'toggle-peso.value':
         for u, v, data in G.edges(data=True):
             data['label'] = '1'
-            
+
         if toggle_peso == 'sem_peso':
-            msg = html.Span("Grafo alterado para Não Ponderado.", style={'color': 'blue'})
+            msg = html.Span("Grafo alterado para Não Ponderado.",
+                            style={'color': 'blue'})
         else:
-            msg = html.Span("Grafo alterado para Ponderado.", style={'color': 'blue'})
-            
+            msg = html.Span("Grafo alterado para Ponderado.",
+                            style={'color': 'blue'})
+
         graph_changed = True
 
     elif prop_id == 'upload-data.contents':
@@ -843,7 +912,8 @@ def main_callback(
             _, content_string = upload_contents.split(',')
             decoded = base64.b64decode(content_string).decode('utf-8')
 
-            linhas = [linha.strip() for linha in decoded.splitlines() if linha.strip()]
+            linhas = [linha.strip()
+                      for linha in decoded.splitlines() if linha.strip()]
 
             arquivo_valido = True
             msg_erro = ""
@@ -853,8 +923,8 @@ def main_callback(
             e_header = 0
             qtd_com_peso = 0
             qtd_sem_peso = 0
-            
-            arestas_lidas = {} # Guarda as arestas na memória: (u, v) -> peso
+
+            arestas_lidas = {}  # Guarda as arestas na memória: (u, v) -> peso
 
             if not linhas:
                 arquivo_valido, msg_erro = False, "O arquivo está vazio."
@@ -882,9 +952,9 @@ def main_callback(
                         peso_str = '1'
                         if len(partes) == 3:
                             peso_str = str(int(partes[2]))
-                            qtd_com_peso += 1  
+                            qtd_com_peso += 1
                         else:
-                            qtd_sem_peso += 1  
+                            qtd_sem_peso += 1
                     except ValueError:
                         arquivo_valido, msg_erro = False, f"Erro na linha {i}: Vértices e pesos devem ser inteiros."
                         break
@@ -892,7 +962,7 @@ def main_callback(
                     vertices_unicos.add(str(u))
                     vertices_unicos.add(str(v))
                     qtd_arestas_reais += 1
-                    
+
                     # Salva no dicionário para cruzamento de dados depois
                     arestas_lidas[(str(u), str(v))] = peso_str
 
@@ -909,12 +979,12 @@ def main_callback(
                 is_symmetric = True
                 for (u, v), peso in arestas_lidas.items():
                     if u == v:
-                        continue # Laço não influencia simetria
+                        continue  # Laço não influencia simetria
                     # Se não tem a volta exata com o MESMO PESO, quebra a simetria
                     if (v, u) not in arestas_lidas or arestas_lidas[(v, u)] != peso:
                         is_symmetric = False
                         break
-                
+
                 with open(GRAPH_FILE_PATH, 'w') as f:
                     f.write(decoded)
 
@@ -927,7 +997,7 @@ def main_callback(
                     G = nx.DiGraph()
                     direcao_output = 'orientado'
                     msg_dir = " (Detectado Orientado)"
-                    
+
                 # Auto-ajuste do painel para pesos
                 if qtd_com_peso > 0:
                     peso_output = 'com_peso'
@@ -942,14 +1012,29 @@ def main_callback(
                     direcao_output = 'orientado'
                     msg_dir = " (Vazio, Orientado por padrão)"
 
-                msg = html.Span(f"Arquivo{msg_peso} carregado!{msg_dir}", style={'color': 'green'})
+                msg = html.Span(f"Arquivo{msg_peso} carregado!{msg_dir}", style={
+                                'color': 'green'})
 
                 load_graph_data(from_upload=True)
-                layout_output = {'name': 'preset', 'animate': True, 'animationDuration': 500}
+                nodes = list(G.nodes())
+                n_nodes = len(nodes)
+                if n_nodes > 0:
+                    raio = max(150, n_nodes * 25) 
+                    centro_x, centro_y = 400, 300
+                    
+                    for i, node in enumerate(nodes):
+                        angulo = 2 * math.pi * i / n_nodes
+                        G.nodes[node]['position'] = {
+                            'x': centro_x + raio * math.cos(angulo),
+                            'y': centro_y + raio * math.sin(angulo)
+                        }
+                layout_output = {'name': 'preset','padding': 50,
+                                 'animate': True, 'animationDuration': 500}
                 new_source_node = None
                 graph_changed = True
             else:
-                msg = html.Span(f"Falha ao carregar: {msg_erro}", style={'color': 'red'})
+                msg = html.Span(
+                    f"Falha ao carregar: {msg_erro}", style={'color': 'red'})
 
             upload_reset = None
 
@@ -969,15 +1054,17 @@ def main_callback(
         # Se um upload mudou a variável peso_output, usa ela. Senão, usa o estado do botão na tela!
         tipo_peso_final = peso_output if peso_output != dash.no_update else toggle_peso
         is_weighted = (tipo_peso_final == 'com_peso')
-        save_graph_data(is_weighted) # Salva omitindo a 3ª coluna se for Falso!
-        
+        # Salva omitindo a 3ª coluna se for Falso!
+        save_graph_data(is_weighted)
+
         new_elements = nx_to_cytoscape(G)
         empty_msg = "" if G.nodes else "Grafo vazio. Adicione um vértice para começar."
 
         if not G.nodes:
             layout_output = {'name': 'preset'}
         elif layout_output == dash.no_update:
-            layout_output = {'name': 'preset', 'animate': True, 'fit': False, 'animationDuration': 100}
+            layout_output = {'name': 'preset', 'animate': True,
+                             'fit': False, 'animationDuration': 100}
     else:
         new_elements = dash.no_update
         empty_msg = dash.no_update
@@ -986,11 +1073,23 @@ def main_callback(
     tipo_dir = "Orientado" if G.is_directed() else "Não Orientado"
     tipo_peso_tela = "Não Ponderado" if tipo_peso_final == 'sem_peso' else "Ponderado"
     propriedades_atuais = obter_propriedades_grafo(G)
+    
+    if G.is_directed():
+        soma_in = sum([d for n, d in G.in_degree()])
+        soma_out = sum([d for n, d in G.out_degree()])
+        graus_text = [
+            html.B("Soma dos Graus (Entrada): "), f"{soma_in}", html.Br(),
+            html.B("Soma dos Graus (Saída): "), f"{soma_out}", html.Br()
+        ]
+    else:
+        graus_text = [
+            html.B("Soma dos Graus: "), f"{sum([d for n, d in G.degree()])}", html.Br()
+        ]
 
     info_texto = [
         html.B("Vértices: "), f"{G.number_of_nodes()}", html.Br(),
-        html.B("Arestas: "), f"{G.number_of_edges()}", html.Br(),
-        html.B("Soma dos Graus: "), f"{sum([d for n, d in G.degree()])}", html.Br(),
+        html.B("Arestas: "), f"{G.number_of_edges()}", html.Br()
+    ] + graus_text + [
         html.B("Direção: "), tipo_dir, html.Br(),
         html.B("Peso: "), tipo_peso_tela, html.Br(),
         html.B("Propriedades: "), propriedades_atuais
@@ -1078,12 +1177,11 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
                               'border-width': 4, 'border-color': '#f5a442', 'background-color': "#ffaf4d"}})
 
     # --- NOVO: APLICA AS CORES DA ANIMAÇÃO DO ALGORITMO ---
-    # --- NOVO: APLICA AS CORES DA ANIMAÇÃO DO ALGORITMO ---
     if snaps and current_frame is not None and current_frame < len(snaps):
         quadro = snaps[current_frame]
         cores = quadro.get('c', {})
         pi_dict = quadro.get('pi', {})
-        aresta_atual = quadro.get('aresta_atual') # <--- LÊ O LASER
+        aresta_atual = quadro.get('aresta_atual')  # <--- LÊ O LASER
 
         # Pinta os Vértices
         for no_id, cor in cores.items():
@@ -1106,7 +1204,7 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
                     seletor = f'edge[source = "{pai}"][target = "{filho}"]'
                 else:
                     seletor = f'edge[source = "{pai}"][target = "{filho}"], edge[source = "{filho}"][target = "{pai}"]'
-                    
+
                 stylesheet.append({
                     'selector': seletor,
                     'style': {'line-color': '#FF9800', 'width': 4, 'target-arrow-color': '#FF9800'}
@@ -1119,13 +1217,13 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
                 seletor_atual = f'edge[source = "{u}"][target = "{v}"]'
             else:
                 seletor_atual = f'edge[source = "{u}"][target = "{v}"], edge[source = "{v}"][target = "{u}"]'
-                
+
             stylesheet.append({
                 'selector': seletor_atual,
                 'style': {
-                    'line-color': "#a71233", # Um vermelho elegante
-                    'width': 4, 
-                    'target-arrow-color': '#a71233', 
+                    'line-color': "#a71233",  # Um vermelho elegante
+                    'width': 4,
+                    'target-arrow-color': '#a71233',
                     'z-index': 9999
                 }
             })
@@ -1153,7 +1251,7 @@ def toggle_delete_button(nodes, edges, connect_mode_on, snaps):
     Output('cytoscape-graph', 'layout', allow_duplicate=True),
     Input('home-button', 'n_clicks'),
     State('cytoscape-graph', 'elements'),
-    State('toggle-peso', 'value'), # <--- LÊ O ESTADO ATUAL DO PESO NA TELA
+    State('toggle-peso', 'value'),  # <--- LÊ O ESTADO ATUAL DO PESO NA TELA
     prevent_initial_call=True
 )
 def reset_layout(n_clicks, cyto_elements, toggle_peso):
@@ -1161,9 +1259,9 @@ def reset_layout(n_clicks, cyto_elements, toggle_peso):
         raise PreventUpdate
 
     _update_node_positions(cyto_elements)
-    
+
     # Salva o arquivo respeitando a regra do botão da interface
-    save_graph_data(toggle_peso == 'com_peso') 
+    save_graph_data(toggle_peso == 'com_peso')
 
     return {
         'name': 'circle',
@@ -1714,7 +1812,7 @@ def atualizar_icone_play(is_playing, estilo_atual):
 
     if is_playing:
         # Se a fita está rodando, mostra o botão de Pause
-        novo_estilo['backgroundImage'] = 'url(assets/pause.svg)'
+        novo_estilo['backgroundImage'] = 'url(assets/icons/pause.svg)'
     else:
         # Se a fita está pausada ou parada, mostra o botão de Play
         novo_estilo['backgroundImage'] = 'url(assets/play.svg)'
@@ -1780,7 +1878,7 @@ app.clientside_callback(
         return window.dash_clientside.no_update;
     }
     """,
-    Output('camera-tracker-dummy', 'data'), 
+    Output('camera-tracker-dummy', 'data'),
     Input('cytoscape-graph', 'zoom'),
     Input('cytoscape-graph', 'pan')
 )
