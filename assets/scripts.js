@@ -29,16 +29,56 @@ window.dash_clientside.grafos = {
         return window.dash_clientside.no_update;
     },
 
+    editarRotuloVertice: function(vertexData) {
+        if (!vertexData) return window.dash_clientside.no_update;
+        
+        let now = new Date().getTime();
+        
+        if (!window.ultimoVerticeClicado) {
+            window.ultimoVerticeClicado = { time: now, id: vertexData.id };
+            return window.dash_clientside.no_update;
+        }
+        
+        let tempoDecorrido = now - window.ultimoVerticeClicado.time;
+        let mesmoVertice = window.ultimoVerticeClicado.id === vertexData.id;
+        
+        window.ultimoVerticeClicado = { time: now, id: vertexData.id };
+        
+        if (tempoDecorrido < 400 && mesmoVertice) {
+            return {
+                id: vertexData.id,
+                label: vertexData.label || ''
+            };
+        }
+        return window.dash_clientside.no_update;
+    },
+
     escutarTeclado: function(graph_id) {
         if (!window.keydownListenerAdded) {
 
             document.addEventListener('keydown', function(event) {
+                // TRAVA CRÍTICA: Ignora o teclado se o usuário estiver digitando no Input do Modal de peso!
+                if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+                    return;
+                }
+
+                // Atalho 1: Delete (Deleta selecionado)
                 if (event.key === 'Delete') {
                     var btnDeletar = document.getElementById('delete-selected-button');
                     if (btnDeletar && !btnDeletar.disabled) {
                         btnDeletar.click();
                     }
                 }
+
+                // Atalho 2: Tecla '+' ou '=' (Adiciona vértice)
+                // Usamos '=' também porque muitas vezes o '+' requer segurar Shift no teclado
+                if (event.key === '+' || event.key === '=') {
+                    var btnAdicionar = document.getElementById('add-vertex-button');
+                    if (btnAdicionar) {
+                        btnAdicionar.click();
+                    }
+                }
+
             });
 
             document.addEventListener('dblclick', function(event) {
@@ -47,6 +87,19 @@ window.dash_clientside.grafos = {
                     let btnCentralizar = document.getElementById('btn-hidden-center');
                     if (btnCentralizar) {
                         btnCentralizar.click();
+                    }
+                }
+            });
+
+            document.addEventListener('contextmenu', function(event) {
+                let container = document.getElementById('cytoscape-graph');
+                
+                if (container && container.contains(event.target)) {
+                    event.preventDefault();
+                    
+                    var btnConexao = document.getElementById('connect-mode-button');
+                    if (btnConexao) {
+                        btnConexao.click();
                     }
                 }
             });
