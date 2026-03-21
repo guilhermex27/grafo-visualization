@@ -425,7 +425,8 @@ def serve_layout():
                             'width': '40px', 
                             'height': '40px',
                         },
-                        caret=False, 
+                        caret=False,
+                        className="menu-templates-espacado", 
                         direction="down",
                         align_end=False, 
                         children=[

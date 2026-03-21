@@ -172,3 +172,8 @@ button:disabled {
     75%  { opacity: 1; }
     100% { opacity: 0; }
 }
+
+.menu-templates-espacado .dropdown-menu {
+    margin-top: 13.5px !important;
+    transform: translate(-38%, 42px) !important;
+}
