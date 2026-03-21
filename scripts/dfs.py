@@ -1,11 +1,10 @@
-import networkx as nx
-
 def dfs_snapshots(G, source=None):
     c = {}
     pi = {}
     d = {}
     f = {}
     snapshots = []
+    pilha = []
     
     for u in G.nodes():
         c[u] = "Branco"
@@ -17,6 +16,7 @@ def dfs_snapshots(G, source=None):
 
     def dfs_visit(u):
         nonlocal tempo
+        pilha.append(u)
         tempo += 1
         d[u] = tempo
         c[u] = "Cinza"
@@ -28,6 +28,7 @@ def dfs_snapshots(G, source=None):
             'pi': pi.copy(),
             'd': d.copy(),
             'f': f.copy(),
+            'pilha': pilha.copy(),
             'tempo': tempo,
             'descricao': f"Descobriu o vértice {u} no tempo {tempo}. (Ficou Cinza)"
         })
@@ -45,6 +46,7 @@ def dfs_snapshots(G, source=None):
                     'pi': pi.copy(),
                     'd': d.copy(),
                     'f': f.copy(),
+                    'pilha': pilha.copy(),
                     'tempo': tempo,
                     'descricao': f"Avançando do vértice {u} para o vizinho {v}."
                 })
@@ -59,6 +61,7 @@ def dfs_snapshots(G, source=None):
                     'pi': pi.copy(),
                     'd': d.copy(),
                     'f': f.copy(),
+                    'pilha': pilha.copy(),
                     'tempo': tempo,
                     'descricao': f"Aresta ignorada: Vértice {v} já foi visitado."
                 })
@@ -66,6 +69,7 @@ def dfs_snapshots(G, source=None):
         c[u] = "Preto"
         tempo += 1
         f[u] = tempo
+        pilha.pop()
         
         snapshots.append({
             'acao': 'Finalizando',
@@ -74,6 +78,7 @@ def dfs_snapshots(G, source=None):
             'pi': pi.copy(),
             'd': d.copy(),
             'f': f.copy(),
+            'pilha': pilha.copy(),
             'tempo': tempo,
             'descricao': f"Retornou para {u}. Vizinhos esgotados no tempo {tempo}. (Ficou Preto)"
         })
@@ -92,6 +97,7 @@ def dfs_snapshots(G, source=None):
                 'pi': pi.copy(),
                 'd': d.copy(),
                 'f': f.copy(),
+                'pilha': pilha.copy(),
                 'tempo': tempo,
                 'descricao': f"Iniciando nova árvore de busca a partir de {u}."
             })

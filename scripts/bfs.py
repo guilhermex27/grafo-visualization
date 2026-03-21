@@ -1,5 +1,3 @@
-import networkx as nx
-
 def bfs_snapshots(G, s):
     s = str(s) 
     c = {}

@@ -272,7 +272,7 @@ server = app.server
 
 def serve_layout():
     os.makedirs(os.path.dirname(GRAPH_FILE_PATH), exist_ok=True)
-    config = load_graph_data()  # <--- RECUPERA A MEMÓRIA
+    config = load_graph_data()  
     initial_elements = nx_to_cytoscape(G)
 
     tipo_dir_val = 'orientado' if config.get(
@@ -315,7 +315,6 @@ def serve_layout():
         html.B("Propriedades: "), propriedades_init
     ]
 
-    # --- MODAL DE AJUDA (GUIA DE ATALHOS) ---
     modal_ajuda = dbc.Modal([
         dbc.ModalHeader(
             dbc.ModalTitle("Guia de Atalhos", className="fw-bold"), 
@@ -457,7 +456,6 @@ def serve_layout():
                     ])
                 ]),
 
-                # --- NOVO: BOTÃO DE AJUDA ---
                 html.Div(className='image-container', style={'marginRight': '5px'}, children=[
                     html.Button(id='btn-abrir-ajuda', style={
                         'backgroundImage': 'url(assets/icons/help.svg)',
@@ -1005,7 +1003,7 @@ def main_callback(
             qtd_com_peso = 0
             qtd_sem_peso = 0
 
-            arestas_lidas = {}  # Guarda as arestas na memória: (u, v) -> peso
+            arestas_lidas = {}
 
             if not linhas:
                 arquivo_valido, msg_erro = False, "O arquivo está vazio."
@@ -1044,7 +1042,6 @@ def main_callback(
                     vertices_unicos.add(str(v))
                     qtd_arestas_reais += 1
 
-                    # Salva no dicionário para cruzamento de dados depois
                     arestas_lidas[(str(u), str(v))] = peso_str
 
             if arquivo_valido:
@@ -1283,7 +1280,7 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
             stylesheet.append({
                 'selector': seletor_atual,
                 'style': {
-                    'line-color': "#a71233",  # Um vermelho elegante
+                    'line-color': "#a71233",
                     'width': 4,
                     'target-arrow-color': '#a71233',
                     'z-index': 9999
@@ -1710,22 +1707,50 @@ def atualizar_painel_raiox(current_frame, snaps, current_style, algo):
     elementos_globais = []
 
     if algo == 'bfs' and 'Q' in quadro:
+        fila_atual = quadro['Q']
+        if fila_atual:
+            str_fila = ", ".join([str(v) for v in fila_atual])
+            texto_fila = f"[{str_fila}]"
+        else:
+            texto_fila = "[ Ø ]"
+            
         elementos_globais.append(html.Div([
             html.B("Fila Q: ",  style={'color': "#080808"}),
-            html.Span(f"{quadro['Q']}", className="fw-bold")
+            html.Span(texto_fila, className="fw-bold")
         ], className="mb-2 text-center", style={'fontSize': '14px'}))
 
-    if algo == 'dfs' and 'tempo' in quadro:
-        elementos_globais.append(html.Div([
-            html.B("Tempo: ",  style={'color': "#080808"}),
-            html.Span(f"{quadro['tempo']}", className="fw-bold")
-        ], className="mb-2 text-center", style={'fontSize': '14px'}))
+    if algo == 'dfs':
+        infos_dfs = []
+        
+        if 'tempo' in quadro:
+            infos_dfs.append(html.Span([
+                html.B("Tempo: ",  style={'color': "#080808"}),
+                html.Span(f"{quadro['tempo']}", className="fw-bold me-3")
+            ]))
+   
+        if 'pilha' in quadro:
+            pilha_atual = quadro['pilha']
+            if pilha_atual:
+                str_pilha = ", ".join(reversed([str(v) for v in pilha_atual]))
+                texto_pilha = f"[Topo -> {str_pilha}]"
+            else:
+                texto_pilha = "[ Ø ]"
+                
+            infos_dfs.append(html.Span([
+                html.B("Pilha: ",  style={'color': "#080808"}),
+                html.Span(texto_pilha, className="fw-bold") 
+            ]))
 
-    # 2. CONSTRUÇÃO DA TABELA DE VÉRTICES (ESTADOS)
+        if infos_dfs:
+            elementos_globais.append(html.Div(
+                infos_dfs, className="mb-2 text-center", style={'fontSize': '14px'}
+            ))
+
+    # 2. CONSTRUÇÃO DA TABELA DE VÉRTICES
     cores_dict = quadro.get('c', {})
     d_dict = quadro.get('d', {})
     pi_dict = quadro.get('pi', {})
-    f_dict = quadro.get('f', {})  # Apenas DFS
+    f_dict = quadro.get('f', {})
 
     vertices = sorted(list(cores_dict.keys()),
                       key=lambda x: int(x) if str(x).isdigit() else x)
