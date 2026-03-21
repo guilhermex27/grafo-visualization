@@ -36,7 +36,6 @@ def dfs_snapshots(G, source=None):
             if c[v] == "Branco":
                 pi[v] = u
                 
-                # NOVO: aresta_atual para destacar o laser vermelho
                 snapshots.append({
                     'acao': 'Avançando',
                     'u': u,
@@ -51,7 +50,6 @@ def dfs_snapshots(G, source=None):
                 })
                 dfs_visit(v)
             else:
-                # Feedback de aresta de retorno/cruzamento
                 snapshots.append({
                     'acao': 'Retorno',
                     'u': u,
@@ -80,7 +78,6 @@ def dfs_snapshots(G, source=None):
             'descricao': f"Retornou para {u}. Vizinhos esgotados no tempo {tempo}. (Ficou Preto)"
         })
 
-    # Restaura a lógica da Floresta DFS, mas priorizando a Origem!
     nodes_to_visit = list(G.nodes())
     if source is not None and str(source) in nodes_to_visit:
         nodes_to_visit.remove(str(source))

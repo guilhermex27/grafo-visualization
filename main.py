@@ -1,18 +1,8 @@
-'''
-Este script implementa um editor de grafos interativo usando Dash, Cytoscape e NetworkX.
-
-Funcionalidades:
-- Modos de Interação: um para 'Seleção' (deletar) e um para 'Conexão' (criar arestas).
-- Visualização de grafos (orientados e não orientados).
-- Adicionar/Remover vértices e arestas de forma interativa.
-- Carregar e Salvar grafos em formato de lista de adjacências.
-- Manutenção das posições dos nós na interface.
-- Backend de dados gerenciado pela biblioteca NetworkX.
-'''
-
 import os
 import math
 import base64
+import time
+import shutil
 import json
 from flask import send_file
 import dash
@@ -168,6 +158,12 @@ def obter_propriedades_grafo(graph_obj):
             (n - 1) if graph_obj.is_directed() else n * (n - 1) // 2
         if e == max_edges:
             props.append("Completo")
+            
+    is_planar, _ = nx.check_planarity(graph_obj)
+    if is_planar:
+        props.append("Planar")
+    else:
+        props.append("Não Planar")
 
     return ", ".join(props)
 
@@ -256,7 +252,6 @@ def save_graph_data(is_weighted=True):
         for linha in linhas_arestas:
             f.write(linha + "\n")
 
-    # --- NOVO: SALVA AS POSIÇÕES E CONFIGURAÇÕES NO JSON ---
     config = {
         'is_directed': G.is_directed(),
         'is_weighted': is_weighted,
@@ -320,6 +315,51 @@ def serve_layout():
         html.B("Propriedades: "), propriedades_init
     ]
 
+    # --- MODAL DE AJUDA (GUIA DE ATALHOS) ---
+    modal_ajuda = dbc.Modal([
+        dbc.ModalHeader(
+            dbc.ModalTitle("Guia de Atalhos", className="fw-bold"), 
+            close_button=True
+        ),
+        dbc.ModalBody([
+            html.P("Utilize os atalhos abaixo para desenhar e editar seu grafo diretamente na tela:", className="text-muted mb-3"),
+            
+            html.Ul(className="list-group list-group-flush border rounded", children=[
+                html.Li(className="list-group-item bg-light", children=[
+                    html.B("🖱️ Shift + Clique Esquerdo ou '+' : "), "Adiciona um novo vértice na tela. Um atalho adiciona na posição do cursor e o outro enfileirando os vértices."
+                ]),
+                html.Li(className="list-group-item bg-light", children=[
+                    html.B("🖱️ Clique Esquerdo: "), "Cria uma aresta após selecionar dois vértices (Se no modo de Conexão)."
+                ]),
+                html.Li(className="list-group-item bg-light", children=[
+                    html.B("🖱️ Duplo Clique Esquerdo (Fundo) : "), "Centralizar a câmera e redefinir o zoom."
+                ]),
+                html.Li(className="list-group-item bg-light", children=[
+                    html.B("🖱️ Duplo Clique Esquerdo (Vértice) : "), "Editar o rótulo do vértice (Se no modo de Seleção).",
+                    html.Br(),
+                    html.Small("⚠️ Aviso: A plataforma apenas permite rótulos inteiros positivos.", style={'color': '#dc3545', 'fontWeight': '600'})
+                ]),
+                html.Li(className="list-group-item bg-light", children=[
+                    html.B("🖱️ Duplo Clique Esquerdo (Aresta) : "), "Editar o peso da aresta (Se ponderado)."
+                ]),
+                html.Li(className="list-group-item bg-light", children=[
+                    html.B("🖱️ Ctrl + Clique Esquerdo: "), "Seleciona múltiplos itens simultaneamente."
+                ]),
+                html.Li(className="list-group-item bg-light", children=[
+                    html.B("🖱️ Clique Direito : "), "Alterna entre o Modo Conexão e o Modo Seleção rapidamente."
+                ]),
+                html.Li(className="list-group-item bg-light", children=[
+                    html.B("⌨️ Tecla Delete (Del) : "), "Exclui os elementos selecionados.",
+                    html.Br(),
+                    html.Small("⚠️ Aviso: Não é possível deletar elementos enquanto estiver no Modo Conexão.", style={'color': '#dc3545', 'fontWeight': '600'})
+                ]),
+            ])
+        ]),
+        dbc.ModalFooter(
+            dbc.Button("Entendi", id="btn-fechar-ajuda", className="ms-auto", n_clicks=0, color="primary")
+        ),
+    ], id="modal-ajuda", is_open=False, size="lg", centered=True)
+
     return dbc.Container(fluid=True, style={'padding': '10px', 'overflowX': 'hidden'}, children=[
         dcc.Store(id='source-node-store', data=None),
         dcc.Store(id='connect-mode-store', data=False),
@@ -359,6 +399,8 @@ def serve_layout():
             ])
         ], id='modal-editar-rotulo', is_open=False, centered=True),
 
+        modal_ajuda,
+
         # --- LINHA 1: CABEÇALHO ---
         dbc.Row(id='top-buttons-container', className="align-items-center mb-3 mt-2", style={'transition': 'opacity 0.3s'}, children=[
 
@@ -371,6 +413,36 @@ def serve_layout():
                     html.Button(
                         id='home-button', style={'backgroundImage': 'url(assets/icons/home.svg)'})
                 ]),
+
+                html.Div(className='image-container', style={'marginRight': '5px'}, children=[
+                    dbc.DropdownMenu(
+                        label="", 
+                        toggle_style={
+                            'backgroundImage': 'url(assets/icons/menu.svg)',
+                            'backgroundSize': 'cover',
+                            'backgroundColor': 'transparent',
+                            'border': 'none',
+                            'width': '40px', 
+                            'height': '40px',
+                        },
+                        caret=False, 
+                        direction="down",
+                        align_end=False, 
+                        children=[
+                            dbc.DropdownMenuItem("Modelos Prontos", header=True, style={'fontSize': '14px', 'fontWeight': '700', 'textAlign': 'center', 'color': '#080808'}),
+                            dbc.DropdownMenuItem(divider=True), 
+                            
+                            dbc.DropdownMenuItem("🌳 Árvore", id="tpl-arvore", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("🏠 Casa", id="tpl-casa", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("⭐ Estrela", id="tpl-estrela", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("🧊 Hipercubo", id="tpl-hipercubo", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("🔺 Triângulo Completo (K4)", id="tpl-triangulo", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("❌ Não Planar (K3,3)", id="tpl-k33", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("🧙 Zé do Grafo", id="tpl-zedografo", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                        ]
+                    )
+                ]),
+
                 html.Div(className='image-container', style={'transform': 'translateY(7px)'}, children=[
                     html.A(id="download-link", href="/download/graph.txt", children=[
                         html.Button(
@@ -382,7 +454,20 @@ def serve_layout():
                         html.Button(
                             style={'backgroundImage': 'url(assets/icons/upload.svg)'})
                     ])
-                ])
+                ]),
+
+                # --- NOVO: BOTÃO DE AJUDA ---
+                html.Div(className='image-container', style={'marginRight': '5px'}, children=[
+                    html.Button(id='btn-abrir-ajuda', style={
+                        'backgroundImage': 'url(assets/icons/help.svg)',
+                        'backgroundSize': 'cover',
+                        'backgroundColor': 'transparent',
+                        'border': 'none',
+                        'width': '45px',
+                        'height': '45px',
+                        'boxShadow': 'none'
+                    })
+                ]),
             ])
         ]),
 
@@ -403,8 +488,9 @@ def serve_layout():
                 dcc.Input(id='shift-click-coords', type='text',
                           style={'display': 'none'}, value=""),
                 dcc.Store(id='camera-tracker-dummy'),
+                html.Button(id='btn-auto-save-pos', style={'display': 'none'}),
 
-                html.Div(id='empty-graph-message', style={'position': 'absolute', 'top': '10px',
+                html.Div(id='empty-graph-message', style={'position': 'absolute', 'top': '50%', 'left': '50%', 'transform': 'translate(-50%, -50%)', 'fontSize': '24px', 'color': '#888','fontWeight': 'bold',
                          'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none'}),
                 html.Div(id='keyboard-listener-dummy',
                          style={'display': 'none'}),
@@ -513,11 +599,9 @@ def serve_layout():
                     html.Div(className='card shadow-sm border-0 p-3', children=[
                         html.H6("Deletar", className="fw-bold mb-3 text-center"),
 
-                        # Trocado para dbc.Button
                         dbc.Button('Deletar Selecionado', id='delete-selected-button',
                                    disabled=True, color="danger", className='w-100 fw-bold mb-2'),
 
-                        # Trocado para dbc.Button com outline=True
                         dbc.Button('Limpar Tudo', id='clear-all-button',
                                    color="danger", outline=True, className='w-100 fw-bold')
                     ]),
@@ -527,10 +611,10 @@ def serve_layout():
                         html.H6("Configurações",
                                 className="fw-bold mb-3 text-center"),
                         dcc.RadioItems(id='toggle-direcao', options=[{'label': ' Não Orientado', 'value': 'nao_orientado'}, {'label': ' Orientado', 'value': 'orientado'}],
-                                       value=tipo_dir_val, labelStyle={'display': 'block', 'textAlign': 'left', 'marginBottom': '5px'}, className="text-secondary"),  # <--- AQUI (tipo_dir_val)
+                                       value=tipo_dir_val, labelStyle={'display': 'block', 'textAlign': 'left', 'marginBottom': '5px'}, className="text-secondary"), 
                         html.Hr(className="my-2"),
                         dcc.RadioItems(id='toggle-peso', options=[{'label': ' Com Peso', 'value': 'com_peso'}, {
-                                       'label': ' Sem Peso', 'value': 'sem_peso'}], value=tipo_peso_val, labelStyle={'display': 'block', 'textAlign': 'left'}, className="text-secondary")  # <--- AQUI (tipo_peso_val)
+                                       'label': ' Sem Peso', 'value': 'sem_peso'}], value=tipo_peso_val, labelStyle={'display': 'block', 'textAlign': 'left'}, className="text-secondary")  
                     ]),
 
                     # CARTÃO 5: Algoritmos
@@ -584,7 +668,6 @@ def _update_node_positions(cyto_elements):
     Output('toggle-direcao', 'value'),
     Output('upload-data', 'contents'),
     Output('texto-info-grafo', 'children'),
-    # <--- NOVO SAÍDA (Permite o Python mudar o botão sozinho)
     Output('toggle-peso', 'value'),
     Input('add-vertex-button', 'n_clicks'),
     Input('delete-selected-button', 'n_clicks'),
@@ -595,10 +678,10 @@ def _update_node_positions(cyto_elements):
     Input('btn-salvar-peso', 'n_clicks'),
     Input('btn-hidden-center', 'n_clicks'),
     Input('toggle-direcao', 'value'),
-    # <--- MUDOU DE STATE PARA INPUT (Altera o arquivo na hora)
     Input('toggle-peso', 'value'),
     Input('btn-salvar-rotulo', 'n_clicks'),
     Input('shift-click-coords', 'value'),
+    Input('btn-auto-save-pos', 'n_clicks'),
     State('cytoscape-graph', 'selectedNodeData'),
     State('cytoscape-graph', 'selectedEdgeData'),
     State('upload-data', 'filename'),
@@ -615,7 +698,7 @@ def _update_node_positions(cyto_elements):
     prevent_initial_call=True
 )
 def main_callback(
-    add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao, toggle_peso, btn_salvar_rotulo, shift_click_data,
+    add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao, toggle_peso, btn_salvar_rotulo, shift_click_data, btn_auto_save,
     sel_nodes, sel_edges, filename, cyto_elements, source_node_id, connect_mode_on,
     aresta_edit_store_data, modal_input_value, snaps, modal_is_open, modal_rotulo_is_open, modal_input_rotulo, vertex_edit_store_data
 ):
@@ -633,7 +716,7 @@ def main_callback(
     graph_changed = False
     direcao_output = dash.no_update
     upload_reset = dash.no_update
-    peso_output = dash.no_update  # <--- NOVO CONTROLE
+    peso_output = dash.no_update
 
     if prop_id == 'add-vertex-button.n_clicks':
         if snaps:
@@ -678,7 +761,6 @@ def main_callback(
             partes = shift_click_data.split(',')
             if len(partes) >= 2:
                 try:
-                    # O Javascript já fez todo o trabalho pesado de cálculo de câmera para nós!
                     pos_x = float(partes[0])
                     pos_y = float(partes[1])
 
@@ -694,6 +776,10 @@ def main_callback(
                     graph_changed = True
                 except ValueError:
                     msg = dash.no_update
+
+    elif prop_id == 'btn-auto-save-pos.n_clicks':
+        graph_changed = True
+        msg = dash.no_update
 
     elif prop_id == 'cytoscape-graph.tapNodeData':
         if connect_mode_on:
@@ -764,14 +850,15 @@ def main_callback(
         elif modal_is_open or modal_rotulo_is_open:
             msg = dash.no_update
         elif not G.nodes:
-            msg = html.Span(f"O grafo já está vazio. (Ação {clear_all})", style={
+            msg = html.Span(f"O grafo já está vazio.", style={
                             'color': 'orange'})
         else:
             G.clear()
-            msg = html.Span(f"Grafo completamente limpo. (Ação {clear_all})", style={
+            msg = html.Span(f"Grafo completamente limpo.", style={
                             'color': 'green'})
             graph_changed = True
             new_source_node = None
+        empty_msg = "" if G.nodes else "Grafo vazio. Adicione um vértice para começar."
 
     elif prop_id == 'btn-salvar-peso.n_clicks':
         if aresta_edit_store_data and modal_input_value is not None:
@@ -839,18 +926,15 @@ def main_callback(
         is_directed = (toggle_direcao == 'orientado')
 
         if is_directed and not G.is_directed():
-            # NÃO ORIENTADO -> ORIENTADO (Expansão)
             novo_G = nx.DiGraph()
             novo_G.add_nodes_from(G.nodes(data=True))
             for u, v, attrs in G.edges(data=True):
 
-                # 1. Cria a aresta original (Limpando fantasmas)
                 attrs_ida = attrs.copy()
                 attrs_ida['real_source'] = u
                 attrs_ida['real_target'] = v
                 novo_G.add_edge(u, v, **attrs_ida)
 
-                # 2. Cria a aresta de volta espelhada (se não for laço)
                 if u != v:
                     attrs_volta = attrs.copy()
                     attrs_volta['real_source'] = v
@@ -858,15 +942,13 @@ def main_callback(
                     novo_G.add_edge(v, u, **attrs_volta)
 
             G = novo_G
-            msg = html.Span("Grafo alterado para Orientado (arestas desdobradas).", style={
+            msg = html.Span("Grafo alterado para Orientado.", style={
                             'color': 'blue'})
             graph_changed = True
 
         elif not is_directed and G.is_directed():
-            # ORIENTADO -> NÃO ORIENTADO (Trava de Segurança)
             conflito = False
             for u, v, data in G.edges(data=True):
-                # Se existe a volta, checa se os pesos são idênticos
                 if u != v and G.has_edge(v, u):
                     peso_ida = data.get('label', '1')
                     peso_volta = G.edges[v, u].get('label', '1')
@@ -883,17 +965,15 @@ def main_callback(
                 novo_G.add_nodes_from(G.nodes(data=True))
                 for u, v, data in G.edges(data=True):
                     if not novo_G.has_edge(u, v):
-                        # Limpa os fantasmas na unificação também!
                         data_limpa = data.copy()
                         data_limpa['real_source'] = u
                         data_limpa['real_target'] = v
                         novo_G.add_edge(u, v, **data_limpa)
                 G = novo_G
-                msg = html.Span("Grafo alterado para Não Orientado (arestas unificadas).", style={
+                msg = html.Span("Grafo alterado para Não Orientado.", style={
                                 'color': 'blue'})
                 graph_changed = True
 
-    # --- AÇÃO QUANDO CLICA NO BOTÃO DE PESO DA TELA ---
     elif prop_id == 'toggle-peso.value':
         for u, v, data in G.edges(data=True):
             data['label'] = '1'
@@ -975,12 +1055,10 @@ def main_callback(
                     arquivo_valido, msg_erro = False, "Inconsistência: Mistura de arestas COM e SEM peso no mesmo arquivo."
 
             if arquivo_valido:
-                # --- DETECTOR DE SIMETRIA ---
                 is_symmetric = True
                 for (u, v), peso in arestas_lidas.items():
                     if u == v:
-                        continue  # Laço não influencia simetria
-                    # Se não tem a volta exata com o MESMO PESO, quebra a simetria
+                        continue
                     if (v, u) not in arestas_lidas or arestas_lidas[(v, u)] != peso:
                         is_symmetric = False
                         break
@@ -988,7 +1066,6 @@ def main_callback(
                 with open(GRAPH_FILE_PATH, 'w') as f:
                     f.write(decoded)
 
-                # Define o motor do NetworkX com base no que leu
                 if is_symmetric and qtd_arestas_reais > 0:
                     G = nx.Graph()
                     direcao_output = 'nao_orientado'
@@ -998,7 +1075,6 @@ def main_callback(
                     direcao_output = 'orientado'
                     msg_dir = " (Detectado Orientado)"
 
-                # Auto-ajuste do painel para pesos
                 if qtd_com_peso > 0:
                     peso_output = 'com_peso'
                     msg_peso = " Ponderado"
@@ -1007,7 +1083,6 @@ def main_callback(
                     msg_peso = " Não Ponderado"
                 else:
                     msg_peso = ""
-                    # Se for vazio, assume Orientado por padrão para evitar falhas
                     G = nx.DiGraph()
                     direcao_output = 'orientado'
                     msg_dir = " (Vazio, Orientado por padrão)"
@@ -1050,11 +1125,8 @@ def main_callback(
             }
 
     if graph_changed:
-        # AQUI É ONDE ELE DECIDE COMO SALVAR:
-        # Se um upload mudou a variável peso_output, usa ela. Senão, usa o estado do botão na tela!
         tipo_peso_final = peso_output if peso_output != dash.no_update else toggle_peso
         is_weighted = (tipo_peso_final == 'com_peso')
-        # Salva omitindo a 3ª coluna se for Falso!
         save_graph_data(is_weighted)
 
         new_elements = nx_to_cytoscape(G)
@@ -1095,7 +1167,6 @@ def main_callback(
         html.B("Propriedades: "), propriedades_atuais
     ]
 
-    # Retorna o peso_output como 9º item para mudar o botão lá no painel!
     return new_elements, msg, layout_output, new_source_node, empty_msg, direcao_output, upload_reset, info_texto, peso_output
 
 
@@ -1105,32 +1176,28 @@ def main_callback(
     Output('connect-mode-help-text', 'children'),
     Output('source-node-store', 'data', allow_duplicate=True),
     Output('action-output-message', 'children',
-           allow_duplicate=True),  # <--- NOVO (Mensagem)
-    # <--- NOVO (Cor do Botão)
+           allow_duplicate=True),
     Output('connect-mode-button', 'className'),
     Input('connect-mode-button', 'n_clicks'),
     State('connect-mode-store', 'data'),
-    State('snapshots-store', 'data'),       # Trava do Player
-    State('modal-editar-peso', 'is_open'),  # Trava do Modal
-    State('modal-editar-rotulo', 'is_open'),  # Trava do Modal
+    State('snapshots-store', 'data'),       
+    State('modal-editar-peso', 'is_open'),  
+    State('modal-editar-rotulo', 'is_open'),  
     prevent_initial_call=True
 )
 def toggle_connect_mode(n_clicks, is_on, snaps, modal_is_open, modal_editar_rotulo_is_open):
-    # Trava de segurança contra atalhos de teclado indevidos
     if snaps or modal_is_open or modal_editar_rotulo_is_open:
         raise PreventUpdate
 
     new_mode_is_on = not is_on
 
     if new_mode_is_on:
-        # VISUAL MODO CONEXÃO (Laranja)
         button_text = "Modo: Conexão"
         help_text = "(Clique na Origem, depois no Destino)"
         btn_class = "btn btn-warning text-dark w-100 fw-bold mb-2"
         msg = html.Span("Modo de Conexão Ativado. Selecione o vértice de origem.", style={
                         'color': '#d97706'})
     else:
-        # VISUAL MODO SELEÇÃO (Azul)
         button_text = "Modo: Seleção"
         help_text = "(Selecione elementos para deletar)"
         btn_class = "btn btn-info text-white w-100 fw-bold mb-2"
@@ -1145,8 +1212,8 @@ def toggle_connect_mode(n_clicks, is_on, snaps, modal_is_open, modal_editar_rotu
     Input('connect-mode-store', 'data'),
     Input('toggle-direcao', 'value'),
     Input('toggle-peso', 'value'),
-    Input('current-frame-store', 'data'),  # <-- NOVO INPUT
-    State('snapshots-store', 'data')      # <-- NOVO STATE
+    Input('current-frame-store', 'data'),  
+    State('snapshots-store', 'data')      
 )
 def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_frame, snaps):
     stylesheet = []
@@ -1168,7 +1235,6 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
             else:
                 style['style']['label'] = 'data(label)'
 
-    # ... Lógica do connect_mode_on (borda laranja etc) ...
     if connect_mode_on:
         stylesheet.append(
             {'selector': ':selected', 'style': {'overlay-opacity': 0}})
@@ -1176,14 +1242,12 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
             stylesheet.append({'selector': f'node[id = "{source_node_id}"]', 'style': {
                               'border-width': 4, 'border-color': '#f5a442', 'background-color': "#ffaf4d"}})
 
-    # --- NOVO: APLICA AS CORES DA ANIMAÇÃO DO ALGORITMO ---
     if snaps and current_frame is not None and current_frame < len(snaps):
         quadro = snaps[current_frame]
         cores = quadro.get('c', {})
         pi_dict = quadro.get('pi', {})
-        aresta_atual = quadro.get('aresta_atual')  # <--- LÊ O LASER
+        aresta_atual = quadro.get('aresta_atual')
 
-        # Pinta os Vértices
         for no_id, cor in cores.items():
             if cor == "Cinza":
                 stylesheet.append({
@@ -1196,10 +1260,8 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
                     'style': {'background-color': '#212121', 'color': 'white', 'text-outline-color': 'white', 'border-color': '#212121'}
                 })
 
-        # Destaca a Árvore de Busca Consolidada (Laranja)
         for filho, pai in pi_dict.items():
             if pai is not None:
-                # FIX DO BUG: Separa orientado de não orientado para não pintar ida e volta em grafos direcionados!
                 if direcao == 'orientado':
                     seletor = f'edge[source = "{pai}"][target = "{filho}"]'
                 else:
@@ -1210,7 +1272,6 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
                     'style': {'line-color': '#FF9800', 'width': 4, 'target-arrow-color': '#FF9800'}
                 })
 
-        # NOVO VISUAL: Destaca a aresta exata sendo percorrida neste milissegundo (Vermelho)
         if aresta_atual:
             u, v = aresta_atual
             if direcao == 'orientado':
@@ -1236,10 +1297,9 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
     Input('cytoscape-graph', 'selectedNodeData'),
     Input('cytoscape-graph', 'selectedEdgeData'),
     Input('connect-mode-store', 'data'),
-    Input('snapshots-store', 'data')  # <--- NOVO INPUT: Lê a fita de filme
+    Input('snapshots-store', 'data')  
 )
 def toggle_delete_button(nodes, edges, connect_mode_on, snaps):
-    # Se tem filme rodando, trava o botão incondicionalmente!
     if snaps:
         return True
     if connect_mode_on:
@@ -1248,28 +1308,46 @@ def toggle_delete_button(nodes, edges, connect_mode_on, snaps):
 
 
 @app.callback(
-    Output('cytoscape-graph', 'layout', allow_duplicate=True),
+    Output('cytoscape-graph', 'layout', allow_duplicate=True), 
     Input('home-button', 'n_clicks'),
-    State('cytoscape-graph', 'elements'),
-    State('toggle-peso', 'value'),  # <--- LÊ O ESTADO ATUAL DO PESO NA TELA
+    State('toggle-peso', 'value'), 
     prevent_initial_call=True
 )
-def reset_layout(n_clicks, cyto_elements, toggle_peso):
+def reset_layout(n_clicks, toggle_peso):
     if not n_clicks:
         raise PreventUpdate
+    
+    nodes = list(G.nodes())
+    n_nodes = len(nodes)
+    
+    pos_dict = {} 
+    
+    if n_nodes > 0:
+        raio = max(150, n_nodes * 25) 
+        centro_x, centro_y = 400, 300
+        
+        for i, node in enumerate(nodes):
+            angulo = 2 * math.pi * i / n_nodes
+            nova_pos = {
+                'x': centro_x + raio * math.cos(angulo),
+                'y': centro_y + raio * math.sin(angulo)
+            }
+            G.nodes[node]['position'] = nova_pos
+            pos_dict[str(node)] = nova_pos 
 
-    _update_node_positions(cyto_elements)
+    save_graph_data(toggle_peso == 'com_peso') 
 
-    # Salva o arquivo respeitando a regra do botão da interface
-    save_graph_data(toggle_peso == 'com_peso')
-
-    return {
-        'name': 'circle',
-        'padding': 10,
+    layout = {
+        'name': 'preset',
+        'positions': pos_dict,
+        'fit': True,
+        'padding': 30,
         'animate': True,
         'animationDuration': 500,
-        'refresh_trigger': n_clicks
+        'refresh_trigger': f"home_{time.time()}"
     }
+    
+    return layout
 
 
 @app.callback(
@@ -1289,7 +1367,6 @@ def alternar_modal(edge_data, cancel_clicks, save_clicks, modo_peso, snaps):
         raise PreventUpdate
     prop_id = ctx.triggered[0]['prop_id']
 
-    # Fecha se apertou cancelar, salvar, ou se o algoritmo tá rodando
     if prop_id in ['btn-cancelar-peso.n_clicks', 'btn-salvar-peso.n_clicks'] or snaps:
         return False, dash.no_update, dash.no_update
 
@@ -1318,7 +1395,6 @@ def alternar_modal_rotulo(vertex_data, cancel_clicks, save_clicks, snaps, connec
         raise PreventUpdate
     prop_id = ctx.triggered[0]['prop_id']
 
-    # Fecha se apertou cancelar, salvar, ou se o algoritmo tá rodando
     if prop_id in ['btn-cancelar-rotulo.n_clicks', 'btn-salvar-rotulo.n_clicks'] or snaps:
         return False, dash.no_update, dash.no_update
 
@@ -1339,7 +1415,6 @@ def alternar_modal_rotulo(vertex_data, cancel_clicks, save_clicks, snaps, connec
     prevent_initial_call=True
 )
 def alternar_painel_inteiro(n_clicks):
-    # O estilo base do painel flutuante
     estilo_painel = {
         'position': 'absolute', 'right': '0', 'top': '0',
         'width': '300px', 'height': '85vh', 'padding': '0',
@@ -1347,11 +1422,9 @@ def alternar_painel_inteiro(n_clicks):
     }
 
     if n_clicks % 2 == 0:
-        # FECHAR: Desliza o painel 100% da sua largura para a direita (fora da tela)
         estilo_painel['transform'] = 'translateX(100%)'
         return 12, estilo_painel, '◀'
     else:
-        # ABRIR: Desliza o painel de volta para a posição original (0)
         estilo_painel['transform'] = 'translateX(0%)'
         return 12, estilo_painel, '▶'
 
@@ -1385,7 +1458,6 @@ def exibir_detalhes_elemento(sel_nodes, sel_edges, direcao, current_style, modo_
     global G
     novo_estilo = current_style.copy()
 
-    # Se clicou no fundo branco (limpou a seleção), esconde o bloco
     if not sel_nodes and not sel_edges:
         novo_estilo['display'] = 'none'
         return dash.no_update, novo_estilo
@@ -1496,7 +1568,6 @@ def exibir_detalhes_elemento(sel_nodes, sel_edges, direcao, current_style, modo_
                 html.Span(f"Tipo: {tipo}")
             ])
     else:
-        # Se selecionou mais de um por engano, não mostra nada
         novo_estilo['display'] = 'none'
         return dash.no_update, novo_estilo
 
@@ -1510,7 +1581,6 @@ def exibir_detalhes_elemento(sel_nodes, sel_edges, direcao, current_style, modo_
 def atualizar_opcoes_origem(elements):
     if not elements:
         return []
-    # Filtra apenas os nós (que não têm 'source' e 'target')
     nos = [ele['data']['id']
            for ele in elements if 'source' not in ele['data']]
     return [{'label': f'Vértice {n}', 'value': n} for n in nos]
@@ -1526,7 +1596,7 @@ def atualizar_opcoes_origem(elements):
     Input('btn-carregar-algo', 'n_clicks'),
     Input('btn-stop-algo', 'n_clicks'),
     State('dropdown-algo', 'value'),
-    State('dropdown-source', 'value'),  # Lê o vértice escolhido
+    State('dropdown-source', 'value'),
     prevent_initial_call=True
 )
 def gerenciar_fita_algoritmo(click_carregar, click_stop, algo, source):
@@ -1545,11 +1615,9 @@ def gerenciar_fita_algoritmo(click_carregar, click_stop, algo, source):
         if not algo:
             return dash.no_update, dash.no_update, dash.no_update, html.Span("Erro: Escolha um algoritmo primeiro!", style={'color': 'red', 'fontWeight': 'bold'}), dash.no_update, dash.no_update
 
-        # --- NOVA VALIDAÇÃO: Origem agora é obrigatória para tudo! ---
         if source is None or str(source) == "":
             return dash.no_update, dash.no_update, dash.no_update, html.Span("Erro: Selecione um Vértice de Origem!", style={'color': 'red', 'fontWeight': 'bold'}), dash.no_update, dash.no_update
 
-        # Passou nas validações, gera a fita:
         if algo == 'bfs':
             snaps = bfs_snapshots(G, str(source))
         else:
@@ -1570,7 +1638,6 @@ def gerenciar_fita_algoritmo(click_carregar, click_stop, algo, source):
     Input('btn-step-algo', 'n_clicks'),
     Input('btn-prev-algo', 'n_clicks'),
     Input('animation-interval', 'n_intervals'),
-    # <--- BÔNUS: Virou Input para ser instantâneo!
     Input('slider-velocidade', 'value'),
     State('is-playing-store', 'data'),
     State('current-frame-store', 'data'),
@@ -1585,20 +1652,16 @@ def controlar_player(btn_play, btn_step, btn_prev, n_ints, velocidade_idx, is_pl
     prop_id = ctx.triggered[0]['prop_id']
     total_frames = len(snaps)
 
-    # --- A MÁGICA DA TRADUÇÃO DE VELOCIDADE ---
-    # 0.25x (4s), 0.5x (2s), 1x (1s), 2x (0.5s)
     mapa_ms = {0: 4000, 1: 2000, 2: 1000, 3: 667, 4: 500}
     intervalo_ms = mapa_ms.get(velocidade_idx, 1000)
-    # ------------------------------------------
 
-    # Se o gatilho foi APENAS arrastar o slider, atualizamos o relógio sem pular o frame
     if prop_id == 'slider-velocidade.value':
         return current_frame, is_playing, not is_playing, intervalo_ms
 
     if prop_id == 'btn-play-algo.n_clicks':
         novo_status_play = not is_playing
         if novo_status_play and current_frame >= total_frames - 1:
-            return 0, True, False, intervalo_ms  # Chegou no fim, recomeça do zero
+            return 0, True, False, intervalo_ms
         return current_frame, novo_status_play, not novo_status_play, intervalo_ms
 
     elif prop_id == 'btn-step-algo.n_clicks':
@@ -1613,7 +1676,7 @@ def controlar_player(btn_play, btn_step, btn_prev, n_ints, velocidade_idx, is_pl
         if is_playing:
             proximo_frame = current_frame + 1
             if proximo_frame >= total_frames:
-                return current_frame, False, True, intervalo_ms  # Auto-pause no fim
+                return current_frame, False, True, intervalo_ms
             return proximo_frame, True, False, intervalo_ms
 
     return current_frame, is_playing, not is_playing, intervalo_ms
@@ -1621,13 +1684,12 @@ def controlar_player(btn_play, btn_step, btn_prev, n_ints, velocidade_idx, is_pl
 
 @app.callback(
     Output('card-execucao-algo', 'style'),
-    Output('titulo-card-algo', 'children'),  # <--- NOVA SAÍDA (TÍTULO)
+    Output('titulo-card-algo', 'children'), 
     Output('texto-narracao-algo', 'children'),
     Output('texto-variaveis-algo', 'children'),
     Input('current-frame-store', 'data'),
     State('snapshots-store', 'data'),
     State('card-execucao-algo', 'style'),
-    # <--- NOVO STATE (SABER QUAL ALGORITMO É)
     State('dropdown-algo', 'value'),
     prevent_initial_call=True
 )
@@ -1664,11 +1726,9 @@ def atualizar_painel_raiox(current_frame, snaps, current_style, algo):
     pi_dict = quadro.get('pi', {})
     f_dict = quadro.get('f', {})  # Apenas DFS
 
-    # Ordena os vértices numericamente se forem números, senão alfabeticamente
     vertices = sorted(list(cores_dict.keys()),
                       key=lambda x: int(x) if str(x).isdigit() else x)
 
-    # Monta o Cabeçalho da Tabela
     thead_cols = [
         html.Th("V", title="Vértice", className="text-center"),
         html.Th("Cor", className="text-center")
@@ -1685,11 +1745,9 @@ def atualizar_painel_raiox(current_frame, snaps, current_style, algo):
             html.Th("π", title="Predecessor", className="text-center")
         ])
 
-    # Monta o Corpo da Tabela
     tbody_rows = []
     for v in vertices:
         cor_nome = cores_dict.get(v, "Branco")
-        # Transforma o texto da cor num emoji bonitinho para economizar espaço
         cor_badge = "⚪" if cor_nome == "Branco" else (
             "🔘" if cor_nome == "Cinza" else "⚫")
 
@@ -1723,7 +1781,6 @@ def atualizar_painel_raiox(current_frame, snaps, current_style, algo):
 
         tbody_rows.append(html.Tr(row_cols))
 
-    # Junta tudo num container com scroll (caso o grafo tenha muitos vértices)
     tabela_completa = html.Div(
         style={'maxHeight': '250px', 'overflowY': 'auto'},
         children=[
@@ -1734,7 +1791,6 @@ def atualizar_painel_raiox(current_frame, snaps, current_style, algo):
         ]
     )
 
-    # O conteúdo final da área de variáveis é a junção das globais com a tabela
     conteudo_final = elementos_globais + [tabela_completa]
 
     return novo_estilo, titulo, narracao, conteudo_final
@@ -1771,25 +1827,18 @@ def alternar_modo_execucao(snaps, style_player, style_info, style_top, n_clicks_
     }
 
     if snaps:
-        # MODO EXECUÇÃO: Player aparece, força fechamento do painel pra fora da tela
         s_player['display'] = 'flex'
         estilo_painel['transform'] = 'translateX(100%)'
         seta = '◀'
-        # style_info_card_copy['display'] = 'none'
-        # s_info['display'] = 'none'
         s_top['pointerEvents'] = 'none'
         s_top['opacity'] = '0.5'
         travar_painel = True
     else:
-        # MODO NORMAL
         s_player['display'] = 'none'
-        # style_info_card_copy['display'] = 'none'
-        # s_info['display'] = 'block'
         s_top['pointerEvents'] = 'auto'
         s_top['opacity'] = '1'
         travar_painel = False
 
-        # Respeita o clique anterior
         if n_clicks % 2 == 0:
             estilo_painel['transform'] = 'translateX(100%)'
             seta = '◀'
@@ -1807,17 +1856,92 @@ def alternar_modo_execucao(snaps, style_player, style_info, style_top, n_clicks_
     prevent_initial_call=True
 )
 def atualizar_icone_play(is_playing, estilo_atual):
-    # Copia o estilo atual para não apagar nada que o Bootstrap ou CSS precisem
     novo_estilo = estilo_atual.copy() if estilo_atual else {}
 
     if is_playing:
-        # Se a fita está rodando, mostra o botão de Pause
         novo_estilo['backgroundImage'] = 'url(assets/icons/pause.svg)'
     else:
-        # Se a fita está pausada ou parada, mostra o botão de Play
-        novo_estilo['backgroundImage'] = 'url(assets/play.svg)'
+        novo_estilo['backgroundImage'] = 'url(assets/icons/play.svg)'
 
     return novo_estilo
+
+@app.callback(
+    Output('cytoscape-graph', 'elements', allow_duplicate=True),
+    Output('cytoscape-graph', 'layout', allow_duplicate=True),
+    Output('action-output-message', 'children', allow_duplicate=True),
+    Output('toggle-direcao', 'value', allow_duplicate=True),
+    Output('toggle-peso', 'value', allow_duplicate=True),
+    Output('empty-graph-message', 'children', allow_duplicate=True),
+    Input('tpl-arvore', 'n_clicks'),
+    Input('tpl-casa', 'n_clicks'),
+    Input('tpl-estrela', 'n_clicks'),
+    Input('tpl-hipercubo', 'n_clicks'),
+    Input('tpl-triangulo', 'n_clicks'),
+    Input('tpl-zedografo', 'n_clicks'),
+    Input('tpl-k33', 'n_clicks'),
+    prevent_initial_call=True
+)
+def carregar_template(n_arvore, n_casa, n_estrela, n_hipercubo, n_triangulo, n_ze, n_k33):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+
+    prop_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    mapa_arquivos = {
+        'tpl-arvore': 'arvore',
+        'tpl-casa': 'casa',
+        'tpl-estrela': 'estrela',
+        'tpl-hipercubo': 'hipercubo',
+        'tpl-triangulo': 'trianguloCompleto',
+        'tpl-k33': 'k33',
+        'tpl-zedografo': 'zeDoGrafo'
+    }
+    
+    nome_base = mapa_arquivos.get(prop_id)
+    if not nome_base:
+        raise PreventUpdate
+        
+    caminho_txt_origem = f'templates/{nome_base}.txt'
+    caminho_json_origem = f'templates/{nome_base}.json'
+
+    os.makedirs('templates', exist_ok=True)
+
+    if os.path.exists(caminho_txt_origem):
+        shutil.copy(caminho_txt_origem, 'data/graph.txt')
+    else:
+        return dash.no_update, dash.no_update, html.Span(f"Erro: Arquivo {caminho_txt_origem} não encontrado!", style={'color': 'red'}), dash.no_update, dash.no_update
+
+    if os.path.exists(caminho_json_origem):
+        shutil.copy(caminho_json_origem, 'data/config.json')
+    else:
+        if os.path.exists('data/config.json'):
+            os.remove('data/config.json')
+    
+    config = load_graph_data(from_upload=False)
+    novos_elementos = nx_to_cytoscape(G)
+    
+    layout = {'name': 'preset', 'animate': True, 'animationDuration': 500, 'fit': True, 'padding': 40}
+    msg = html.Span(f"Modelo '{nome_base}' carregado com sucesso!", style={'color': 'green'})
+    
+    dir_val = 'orientado' if config.get('is_directed', False) else 'nao_orientado'
+    peso_val = 'com_peso' if config.get('is_weighted', True) else 'sem_peso'
+    
+    return novos_elementos, layout, msg, dir_val, peso_val, ""
+
+@app.callback(
+    Output("modal-ajuda", "is_open"),
+    [Input("btn-abrir-ajuda", "n_clicks"), 
+     Input("btn-fechar-ajuda", "n_clicks")],
+    [State("modal-ajuda", "is_open")],
+    prevent_initial_call=True
+)
+def alternar_modal_ajuda(n_abrir, n_fechar, is_open):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+   
+    return not is_open
 
 # =============================================================================
 # Callbacks Javascript (Lado do Cliente)
@@ -1862,7 +1986,7 @@ app.clientside_callback(
     }
     """,
     Output('keyboard-listener-dummy',
-           'data-fade'),  # Apenas um output fantasma necessário
+           'data-fade'),
     Input('action-output-message', 'children'),
     prevent_initial_call=True
 )

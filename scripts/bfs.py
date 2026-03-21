@@ -1,7 +1,7 @@
 import networkx as nx
 
 def bfs_snapshots(G, s):
-    s = str(s) # Blindagem de tipo
+    s = str(s) 
     c = {}
     d = {}
     pi = {}
@@ -47,7 +47,6 @@ def bfs_snapshots(G, s):
                 pi[v] = u
                 Q.append(v)
                 
-                # INSERIDO A ARESTA ATUAL AQUI
                 snapshots.append({
                     'acao': 'Descobrindo',
                     'u': u,
@@ -60,7 +59,6 @@ def bfs_snapshots(G, s):
                     'descricao': f"Vértice {v} descoberto! Adicionado à fila."
                 })
             else:
-                # Feedback visual de aresta ignorada no BFS
                 snapshots.append({
                     'acao': 'Ignorando',
                     'u': u,
