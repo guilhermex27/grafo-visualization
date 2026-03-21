@@ -39,6 +39,7 @@ window.dash_clientside.grafos = {
             return window.dash_clientside.no_update;
         }
         
+        // CORRIGIDO: Agora usa ultimoVerticeClicado em vez de ultimaArestaClicada
         let tempoDecorrido = now - window.ultimoVerticeClicado.time;
         let mesmoVertice = window.ultimoVerticeClicado.id === vertexData.id;
         
@@ -56,31 +57,26 @@ window.dash_clientside.grafos = {
     escutarTeclado: function(graph_id) {
         if (!window.keydownListenerAdded) {
 
+            // 1. EVENTOS DE TECLADO
             document.addEventListener('keydown', function(event) {
-                // TRAVA CRÍTICA: Ignora o teclado se o usuário estiver digitando no Input do Modal de peso!
                 if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
                     return;
                 }
-
-                // Atalho 1: Delete (Deleta selecionado)
                 if (event.key === 'Delete') {
                     var btnDeletar = document.getElementById('delete-selected-button');
                     if (btnDeletar && !btnDeletar.disabled) {
                         btnDeletar.click();
                     }
                 }
-
-                // Atalho 2: Tecla '+' ou '=' (Adiciona vértice)
-                // Usamos '=' também porque muitas vezes o '+' requer segurar Shift no teclado
                 if (event.key === '+' || event.key === '=') {
                     var btnAdicionar = document.getElementById('add-vertex-button');
                     if (btnAdicionar) {
                         btnAdicionar.click();
                     }
                 }
-
             });
 
+            // 2. DUPLO CLIQUE NO FUNDO (Centralizar)
             document.addEventListener('dblclick', function(event) {
                 let container = document.getElementById('cytoscape-graph');
                 if (container && container.contains(event.target)) {
@@ -91,12 +87,11 @@ window.dash_clientside.grafos = {
                 }
             });
 
+            // 3. BOTÃO DIREITO DO MOUSE (Modo Conexão)
             document.addEventListener('contextmenu', function(event) {
                 let container = document.getElementById('cytoscape-graph');
-                
                 if (container && container.contains(event.target)) {
                     event.preventDefault();
-                    
                     var btnConexao = document.getElementById('connect-mode-button');
                     if (btnConexao) {
                         btnConexao.click();
@@ -104,6 +99,101 @@ window.dash_clientside.grafos = {
                 }
             });
 
+            // 4. SHIFT + CLIQUE ESQUERDO (Adicionar Vértice no Mouse - VERSÃO DEFINITIVA)
+            document.addEventListener('mousedown', function(event) {
+                if (event.shiftKey && event.button === 0) {
+                    let container = document.getElementById('cytoscape-graph');
+                    
+                    if (container && container.contains(event.target)) {
+                        event.preventDefault(); 
+                        
+                        let rect = container.getBoundingClientRect();
+                        let x_tela = event.clientX - rect.left;
+                        let y_tela = event.clientY - rect.top;
+                        
+                        // --- O HACK SUPREMO: Infiltração no React para pegar o motor bruto do Cytoscape ---
+                        let cy = null;
+                        let reactKey = Object.keys(container).find(k => k.startsWith('__reactFiber$'));
+                        if (reactKey) {
+                            let fiber = container[reactKey];
+                            while (fiber) {
+                                // O dash-cytoscape guarda o motor original na variável _cy
+                                if (fiber.stateNode && fiber.stateNode._cy) {
+                                    cy = fiber.stateNode._cy;
+                                    break;
+                                }
+                                if (fiber.stateNode && fiber.stateNode.cy) {
+                                    cy = fiber.stateNode.cy;
+                                    break;
+                                }
+                                fiber = fiber.return;
+                            }
+                        }
+
+                        let cyto_zoom = 1.0;
+                        let cyto_pan_x = 0;
+                        let cyto_pan_y = 0;
+
+                        if (cy) {
+                            // Se hackeamos com sucesso, pegamos a câmera em tempo real sem atrasos!
+                            cyto_zoom = cy.zoom();
+                            let pan = cy.pan();
+                            cyto_pan_x = pan.x;
+                            cyto_pan_y = pan.y;
+                        } else {
+                            // Fallback de emergência
+                            let cam = window.my_cyto_camera || {};
+                            cyto_zoom = cam.zoom || 1.0;
+                            cyto_pan_x = (cam.pan && cam.pan.x !== undefined) ? cam.pan.x : 0;
+                            cyto_pan_y = (cam.pan && cam.pan.y !== undefined) ? cam.pan.y : 0;
+                        }
+                        
+                        // MÁGICA REVERSA CALIBRADA
+                        let x_real = (x_tela - cyto_pan_x) / cyto_zoom;
+                        let y_real = (y_tela - cyto_pan_y) / cyto_zoom;
+                        
+                        // Aciona o Python
+                        let input = document.getElementById('shift-click-coords');
+                        if (input) {
+                            let nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                            nativeInputValueSetter.call(input, x_real + "," + y_real + "," + new Date().getTime());
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                    }
+                }
+            }, true); // O 'true' intercepta o evento perfeitamente // <--- A Fase de Captura (true) está aqui!
+            
+            // 5. AUTO-SAVE DE POSIÇÃO (Drag and Drop)
+            if (!window.dragListenerAdded) {
+                let attempts = 0;
+                let tryAttachCy = setInterval(function() {
+                    let container = document.getElementById('cytoscape-graph');
+                    if (container) {
+                        let cy = null;
+                        let reactKey = Object.keys(container).find(k => k.startsWith('__reactFiber$'));
+                        if (reactKey) {
+                            let fiber = container[reactKey];
+                            while (fiber) {
+                                if (fiber.stateNode && fiber.stateNode._cy) { cy = fiber.stateNode._cy; break; }
+                                if (fiber.stateNode && fiber.stateNode.cy) { cy = fiber.stateNode.cy; break; }
+                                fiber = fiber.return;
+                            }
+                        }
+                        if (cy) {
+                            // A MÁGICA: Quando o usuário soltar o clique de arrastar um vértice
+                            cy.on('dragfree', 'node', function(evt) {
+                                let btn = document.getElementById('btn-auto-save-pos');
+                                if(btn) btn.click(); // Aperta o botão invisível e avisa o Python!
+                            });
+                            window.dragListenerAdded = true;
+                            clearInterval(tryAttachCy);
+                        }
+                    }
+                    attempts++;
+                    if(attempts > 20) clearInterval(tryAttachCy); // Desiste após 10 segundos
+                }, 500);
+            }
+            
             window.keydownListenerAdded = true;
         }
         return window.dash_clientside.no_update;
