@@ -30,7 +30,7 @@ def dfs_snapshots(G, source=None):
             'f': f.copy(),
             'pilha': pilha.copy(),
             'tempo': tempo,
-            'descricao': f"Descobriu o vértice {u} no tempo {tempo}. (Ficou Cinza)"
+            'descricao': f"Descobriu o vértice {u} no tempo {tempo}."
         })
 
         for v in G.adj[u]:
@@ -80,7 +80,7 @@ def dfs_snapshots(G, source=None):
             'f': f.copy(),
             'pilha': pilha.copy(),
             'tempo': tempo,
-            'descricao': f"Retornou para {u}. Vizinhos esgotados no tempo {tempo}. (Ficou Preto)"
+            'descricao': f"Retornou para {u}. Vizinhos esgotados no tempo {tempo}."
         })
 
     nodes_to_visit = list(G.nodes())

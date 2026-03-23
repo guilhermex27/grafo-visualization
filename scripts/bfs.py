@@ -78,7 +78,7 @@ def bfs_snapshots(G, s):
             'd': d.copy(),
             'pi': pi.copy(),
             'Q': list(Q),
-            'descricao': f"Vértice {u} totalmente explorado (Ficou Preto)."
+            'descricao': f"Vértice {u} totalmente explorado."
         })
 
     return snapshots

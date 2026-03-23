@@ -30,9 +30,9 @@ BASE_STYLESHEET = [
         'style': {
             'label': 'data(label)',
             'width': 40, 'height': 40,
-            'text-valign': 'center', 'color': '#333',
-            'text-outline-color': '#333', 'text-outline-width': '1px',
-            'background-color': 'white', 'border-width': 4, 'border-color': '#333',
+            'text-valign': 'center', 'color': '#222',
+            'text-outline-color': '#222', 'text-outline-width': '1px',
+            'background-color': 'white', 'border-width': 4, 'border-color': '#222',
             'transition-property': 'background-color, border-width, border-color, width, height',
             'transition-duration': '0.2s',
         }
@@ -41,32 +41,45 @@ BASE_STYLESHEET = [
         'selector': 'edge',
         'style': {
             'label': 'data(label)', 
-            'color': '#333',
-            'line-color': '#333',    
-            'target-arrow-color': '#333',
+            'color': '#222',
+            'line-color': '#222',    
+            'target-arrow-color': '#222',
             'arrow-scale': 1.5,
             'text-background-color': '#ffffff',
             'text-background-opacity': 1,
             'text-background-shape': 'roundrectangle',
-            'text-background-padding': '4px',
+            'text-background-padding': '5px',
             'text-wrap': 'wrap',
-            'text-z-index': 10,
-            'text-outline-color': '#333', 'text-outline-width': '0.4px',
+            'text-outline-color': '#222', 'text-outline-width': '0.6px',
             'transition-property': 'line-color, width, target-arrow-color',
             'transition-duration': '0.2s',
+            'curve-style': 'unbundled-bezier', 
+            'control-point-step-size': '70px',
         }
     },
     {
-        'selector': ':selected',
+        'selector': 'node:selected',
         'style': {
             'border-width': 4, 'border-color': '#42a5f5',
             'background-color': '#64b5f6',
-            
-            'line-color': '#64b5f6',        
-            'target-arrow-color': '#64b5f6', 
+
+            'color': '#ffffff',
+            'text-outline-color': '#ffffff',
+
             'z-index': 9999
         }
+    },
+    {
+    'selector': 'edge:selected', 
+    'style': {
+        'z-index': 9999,
+        'line-color': '#42a5f5',
+        'target-arrow-color': '#42a5f5',
+        'text-outline-color': '#42a5f5', 'text-outline-width': '0.6px',
+        'color': '#42a5f5',
+        'width': '3px'        
     }
+},
 ]
 
 # =============================================================================
@@ -328,7 +341,10 @@ def serve_layout():
                     html.B("🖱️ Shift + Clique Esquerdo ou '+' : "), "Adiciona um novo vértice na tela. Um atalho adiciona na posição do cursor e o outro enfileirando os vértices."
                 ]),
                 html.Li(className="list-group-item bg-light", children=[
-                    html.B("🖱️ Clique Esquerdo: "), "Cria uma aresta após selecionar dois vértices (Se no modo de Conexão)."
+                    html.B("🖱️ Clique Direito : "), "Alterna entre o Modo de Conexão e o Modo de Seleção rapidamente."
+                ]),
+                html.Li(className="list-group-item bg-light", children=[
+                    html.B("🖱️ Clique Esquerdo: "), "Cria uma aresta após clicar encima de dois vértices (Se no modo de Conexão)."
                 ]),
                 html.Li(className="list-group-item bg-light", children=[
                     html.B("🖱️ Duplo Clique Esquerdo (Fundo) : "), "Centralizar a câmera e redefinir o zoom."
@@ -343,9 +359,6 @@ def serve_layout():
                 ]),
                 html.Li(className="list-group-item bg-light", children=[
                     html.B("🖱️ Ctrl + Clique Esquerdo: "), "Seleciona múltiplos itens simultaneamente."
-                ]),
-                html.Li(className="list-group-item bg-light", children=[
-                    html.B("🖱️ Clique Direito : "), "Alterna entre o Modo Conexão e o Modo Seleção rapidamente."
                 ]),
                 html.Li(className="list-group-item bg-light", children=[
                     html.B("⌨️ Tecla Delete (Del) : "), "Exclui os elementos selecionados.",
@@ -489,7 +502,7 @@ def serve_layout():
                 dcc.Store(id='camera-tracker-dummy'),
                 html.Button(id='btn-auto-save-pos', style={'display': 'none'}),
 
-                html.Div(id='empty-graph-message', style={'position': 'absolute', 'top': '50%', 'left': '50%', 'transform': 'translate(-50%, -50%)', 'fontSize': '24px', 'color': '#888','fontWeight': 'bold',
+                html.Div("" if G.nodes else "Grafo vazio. Adicione um vértice para começar.", id='empty-graph-message', style={'position': 'absolute', 'top': '50%', 'left': '50%', 'transform': 'translate(-50%, -50%)', 'fontSize': '24px', 'color': '#888','fontWeight': 'bold',
                          'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none'}),
                 html.Div(id='keyboard-listener-dummy',
                          style={'display': 'none'}),
@@ -517,7 +530,7 @@ def serve_layout():
 
                 dbc.Card(id='card-execucao-algo', className="card shadow border-success p-0", style={
                     'display': 'none', 'position': 'absolute', 'top': '10px', 'right': '0px', 'zIndex': 105,
-                    'backgroundColor': 'rgba(255, 255, 255, 0.95)', 'minWidth': '280px', 'maxWidth': '320px',
+                    'backgroundColor': 'rgba(255, 255, 255, 0.95)', 'minWidth': '320px', 'maxWidth': '320px',
                     'borderWidth': '2px', 'borderRadius': '8px', 'overflow': 'hidden'
                 }, children=[
                     dbc.CardHeader(html.H6(id='titulo-card-algo', children="⚙️ Execução",
@@ -525,7 +538,7 @@ def serve_layout():
 
                     dbc.CardBody(className="p-3", children=[
                         html.Div(id='texto-narracao-algo', className="text-dark fw-bold mb-3 text-center",
-                                 style={'fontSize': '14px', 'fontStyle': 'italic'}),
+                                 style={'fontSize': '14px', 'fontStyle': 'italic', 'minHeight': '42px'}),
 
                         html.Div(id='texto-variaveis-algo')
                     ])
@@ -533,15 +546,19 @@ def serve_layout():
 
                 html.Div(id='player-flutuante', className='player card flex-column shadow-lg p-3 border-0', style={'display': 'none', 'backgroundColor': 'rgba(255, 255, 255, 0.95)'}, children=[
 
-                    html.Div(className='d-flex justify-content-around mb-3 w-100 px-3', children=[
+                    html.Div(className='d-flex justify-content-between mb-3 w-100 px-3', children=[
                         html.Button(
                             id='btn-stop-algo', style={'backgroundImage': 'url(assets/icons/stop.svg)'}),
+                        html.Button(
+                            id='btn-inicio-algo', style={'backgroundImage': 'url(assets/icons/fast-backward.svg)'}),
                         html.Button(
                             id='btn-prev-algo', style={'backgroundImage': 'url(assets/icons/previous.svg)'}),
                         html.Button(
                             id='btn-play-algo', style={'backgroundImage': 'url(assets/icons/play.svg)'}),
                         html.Button(
                             id='btn-step-algo', style={'backgroundImage': 'url(assets/icons/next.svg)'}),
+                        html.Button(
+                            id='btn-fim-algo', style={'backgroundImage': 'url(assets/icons/fast-forward.svg)'}),
                     ]),
 
                     html.Div(className='text-center fw-bold text-dark mb-2',
@@ -736,7 +753,7 @@ def main_callback(
             pos_y = 80 + (linha * 70)
 
             G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
-            msg = html.Span(f"Vértice '{new_id}' adicionado.", style={
+            msg = html.Span(f"Vértice {new_id} adicionado.", style={
                             'color': 'green'})
             graph_changed = True
 
@@ -770,15 +787,18 @@ def main_callback(
 
                     G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
 
-                    msg = html.Span(f"Vértice '{new_id}' adicionado.", style={
+                    msg = html.Span(f"Vértice {new_id} adicionado.", style={
                                     'color': 'green'})
                     graph_changed = True
                 except ValueError:
                     msg = dash.no_update
 
     elif prop_id == 'btn-auto-save-pos.n_clicks':
-        graph_changed = True
-        msg = dash.no_update
+        _update_node_positions(cyto_elements)
+        
+        save_graph_data(toggle_peso == 'com_peso')
+     
+        raise PreventUpdate
 
     elif prop_id == 'cytoscape-graph.tapNodeData':
         if connect_mode_on:
@@ -808,7 +828,8 @@ def main_callback(
                                         style={'color': 'orange'})
                     else:
                         G.add_edge(source_node_id, target_node_id, label='1')
-                        msg = html.Span(f"Aresta de {source_node_id} a {target_node_id} criada.", style={
+                        sep = "->" if G.is_directed() else "-"
+                        msg = html.Span(f"Aresta {source_node_id}{sep}{target_node_id} criada.", style={
                                         'color': 'green'})
                         graph_changed = True
                     new_source_node = None
@@ -821,7 +842,10 @@ def main_callback(
         if not connect_mode_on and tapped_edge_data:
             source = tapped_edge_data['source']
             target = tapped_edge_data['target']
-            msg = html.Span(f"Aresta {source}-{target} selecionada.")
+
+            sep = "->" if G.is_directed() else "-"
+
+            msg = html.Span(f"Aresta {source}{sep}{target} selecionada.")
 
     elif prop_id == 'delete-selected-button.n_clicks':
         if snaps:
@@ -853,7 +877,7 @@ def main_callback(
                             'color': 'orange'})
         else:
             G.clear()
-            msg = html.Span(f"Grafo completamente limpo.", style={
+            msg = html.Span(f"Grafo limpo.", style={
                             'color': 'green'})
             graph_changed = True
             new_source_node = None
@@ -890,7 +914,7 @@ def main_callback(
                 elif novo_id == old_id:
                     msg = dash.no_update
                 elif G.has_node(novo_id):
-                    msg = html.Span(f"Erro: O vértice '{novo_id}' já existe!", style={
+                    msg = html.Span(f"Erro: O vértice {novo_id} já existe!", style={
                                     'color': 'red', 'fontWeight': 'bold'})
                 elif G.has_node(old_id):
                     nx.relabel_nodes(G, {old_id: novo_id}, copy=False)
@@ -910,7 +934,7 @@ def main_callback(
                         if data.get('real_target') == old_id:
                             data['real_target'] = novo_id
 
-                    msg = html.Span(f"Vértice '{old_id}' alterado para '{novo_id}'.", style={
+                    msg = html.Span(f"Vértice {old_id} alterado para {novo_id}.", style={
                                     'color': 'green'})
                     graph_changed = True
 
@@ -1067,25 +1091,25 @@ def main_callback(
                 if is_symmetric and qtd_arestas_reais > 0:
                     G = nx.Graph()
                     direcao_output = 'nao_orientado'
-                    msg_dir = " (Detectado Não Orientado por simetria)"
+                    msg_dir = "Não Orientado"
                 else:
                     G = nx.DiGraph()
                     direcao_output = 'orientado'
-                    msg_dir = " (Detectado Orientado)"
+                    msg_dir = "Orientado"
 
                 if qtd_com_peso > 0:
                     peso_output = 'com_peso'
-                    msg_peso = " Ponderado"
+                    msg_peso = "Ponderado"
                 elif qtd_sem_peso > 0:
                     peso_output = 'sem_peso'
-                    msg_peso = " Não Ponderado"
+                    msg_peso = "Não Ponderado"
                 else:
                     msg_peso = ""
                     G = nx.DiGraph()
                     direcao_output = 'orientado'
-                    msg_dir = " (Vazio, Orientado por padrão)"
+                    msg_dir = "Orientado"
 
-                msg = html.Span(f"Arquivo{msg_peso} carregado!{msg_dir}", style={
+                msg = html.Span(f"Grafo {msg_dir} e {msg_peso} carregado!", style={
                                 'color': 'green'})
 
                 load_graph_data(from_upload=True)
@@ -1321,7 +1345,7 @@ def reset_layout(n_clicks, toggle_peso):
     pos_dict = {} 
     
     if n_nodes > 0:
-        raio = max(150, n_nodes * 25) 
+        raio = max(150, n_nodes * 45) 
         centro_x, centro_y = 400, 300
         
         for i, node in enumerate(nodes):
@@ -1550,21 +1574,28 @@ def exibir_detalhes_elemento(sel_nodes, sel_edges, direcao, current_style, modo_
         peso = G.edges[src, tgt].get('label', '1')
         tipo = "Laço" if src == tgt else "Simples"
 
-        if modo_peso != 'sem_peso':
+        if G.is_directed():
             conteudo.extend([
-                html.B(f"Aresta Selecionada: {src} - {tgt}"), html.Br(),
-                html.Span(f"Origem: {src}"), html.Br(),
-                html.Span(f"Destino: {tgt}"), html.Br(),
-                html.Span(f"Peso: {peso}"), html.Br(),
-                html.Span(f"Tipo: {tipo}")
+                html.H6(html.B("Aresta Selecionada:"), className="fw mb-2"),
+                html.B("Conexão: "), f"{src} -> {tgt}", html.Br(),
+                html.B("Origem: "), f"{src}", html.Br(),
+                html.B("Destino: "), f"{tgt}", html.Br()
             ])
         else:
             conteudo.extend([
-                html.B(f"Aresta Selecionada: {src} - {tgt}"), html.Br(),
-                html.Span(f"Origem: {src}"), html.Br(),
-                html.Span(f"Destino: {tgt}"), html.Br(),
-                html.Span(f"Tipo: {tipo}")
+                html.H6(html.B("Aresta Selecionada:"), className="fw mb-2"),
+                html.B("Conexão: "), f"{src} - {tgt}", html.Br(),
+                html.B("Extremidades: "), f"{src} e {tgt}", html.Br()
             ])
+
+        if modo_peso != 'sem_peso':
+            conteudo.extend([
+                html.B("Peso: "), f"{peso}", html.Br()
+            ])
+        
+        conteudo.extend([
+            html.B("Tipo: "), f"{tipo}"
+        ])
     else:
         novo_estilo['display'] = 'none'
         return dash.no_update, novo_estilo
@@ -1606,7 +1637,7 @@ def gerenciar_fita_algoritmo(click_carregar, click_stop, algo, source):
 
     if prop_id == 'btn-stop-algo.n_clicks':
         msg_stop = html.Span(
-            "Execução cancelada. Modo normal ativado.", style={'color': 'blue'})
+            "Execução cancelada.", style={'color': 'blue'})
         return None, 0, False, msg_stop, dash.no_update, dash.no_update
 
     if prop_id == 'btn-carregar-algo.n_clicks':
@@ -1621,7 +1652,7 @@ def gerenciar_fita_algoritmo(click_carregar, click_stop, algo, source):
         else:
             snaps = dfs_snapshots(G, str(source))
 
-        msg = html.Span(f"Algoritmo {algo.upper()} carregado! Modo de Execução Isolado iniciado.", style={
+        msg = html.Span(f"Algoritmo {algo.upper()} carregado!", style={
                         'color': 'green'})
 
         return snaps, 0, False, msg, False, "Modo: Seleção"
@@ -1635,6 +1666,8 @@ def gerenciar_fita_algoritmo(click_carregar, click_stop, algo, source):
     Input('btn-play-algo', 'n_clicks'),
     Input('btn-step-algo', 'n_clicks'),
     Input('btn-prev-algo', 'n_clicks'),
+    Input('btn-inicio-algo', 'n_clicks'),
+    Input('btn-fim-algo', 'n_clicks'),  
     Input('animation-interval', 'n_intervals'),
     Input('slider-velocidade', 'value'),
     State('is-playing-store', 'data'),
@@ -1642,33 +1675,43 @@ def gerenciar_fita_algoritmo(click_carregar, click_stop, algo, source):
     State('snapshots-store', 'data'),
     prevent_initial_call=True
 )
-def controlar_player(btn_play, btn_step, btn_prev, n_ints, velocidade_idx, is_playing, current_frame, snaps):
+def controlar_player(btn_play, btn_step, btn_prev, btn_inicio, btn_fim, n_ints, velocidade_idx, is_playing, current_frame, snaps):
     ctx = dash.callback_context
     if not ctx.triggered or not snaps:
         raise PreventUpdate
 
     prop_id = ctx.triggered[0]['prop_id']
     total_frames = len(snaps)
+    max_frame = total_frames - 1
 
     mapa_ms = {0: 4000, 1: 2000, 2: 1000, 3: 667, 4: 500}
     intervalo_ms = mapa_ms.get(velocidade_idx, 1000)
+    
+    if current_frame is None:
+        current_frame = 0
 
     if prop_id == 'slider-velocidade.value':
         return current_frame, is_playing, not is_playing, intervalo_ms
 
     if prop_id == 'btn-play-algo.n_clicks':
         novo_status_play = not is_playing
-        if novo_status_play and current_frame >= total_frames - 1:
+        if novo_status_play and current_frame >= max_frame:
             return 0, True, False, intervalo_ms
         return current_frame, novo_status_play, not novo_status_play, intervalo_ms
 
     elif prop_id == 'btn-step-algo.n_clicks':
-        proximo_frame = min(current_frame + 1, total_frames - 1)
+        proximo_frame = min(current_frame + 1, max_frame)
         return proximo_frame, False, True, intervalo_ms
 
     elif prop_id == 'btn-prev-algo.n_clicks':
         quadro_anterior = max(current_frame - 1, 0)
         return quadro_anterior, False, True, intervalo_ms
+
+    elif prop_id == 'btn-inicio-algo.n_clicks':
+        return 0, False, True, intervalo_ms
+        
+    elif prop_id == 'btn-fim-algo.n_clicks':
+        return max_frame, False, True, intervalo_ms
 
     elif prop_id == 'animation-interval.n_intervals':
         if is_playing:
@@ -2003,10 +2046,9 @@ app.clientside_callback(
         
         var el = document.getElementById('action-output-message');
         if (el) {
-            // O truque para reiniciar a animação CSS toda vez que uma mensagem nova chega
             el.style.animation = 'none';
-            el.offsetHeight; /* Força o navegador a recalcular a tela */
-            el.style.animation = 'fadeOutMsg 5.0s forwards'; /* Dura 3.5 segundos */
+            el.offsetHeight;
+            el.style.animation = 'fadeOutMsg 5.0s forwards';
         }
         return window.dash_clientside.no_update;
     }

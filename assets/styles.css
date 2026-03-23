@@ -141,7 +141,7 @@ button:disabled {
     bottom: 20px;
     right: 20px; 
     z-index: 50;
-    min-width: 320px;
+    min-width: 400px;
 }
 
 .player button {

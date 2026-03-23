@@ -185,7 +185,7 @@ window.dash_clientside.grafos = {
                     }
                     attempts++;
                     if(attempts > 20) clearInterval(tryAttachCy);
-                }, 500);
+                }, 300);
             }
             
             window.keydownListenerAdded = true;
