@@ -171,4 +171,5 @@ button:disabled {
 .menu-templates-espacado .dropdown-menu {
     margin-top: 13.5px !important;
     transform: translate(-38%, 42px) !important;
+    min-width: 251px;
 }

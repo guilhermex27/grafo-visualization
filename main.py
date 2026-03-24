@@ -445,13 +445,13 @@ def serve_layout():
                             dbc.DropdownMenuItem("Modelos Prontos", header=True, style={'fontSize': '14px', 'fontWeight': '700', 'textAlign': 'center', 'color': '#080808'}),
                             dbc.DropdownMenuItem(divider=True), 
                             
-                            dbc.DropdownMenuItem("🌳 Árvore", id="tpl-arvore", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
-                            dbc.DropdownMenuItem("🏠 Casa", id="tpl-casa", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
-                            dbc.DropdownMenuItem("⭐ Estrela", id="tpl-estrela", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
-                            dbc.DropdownMenuItem("🧊 Hipercubo", id="tpl-hipercubo", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
-                            dbc.DropdownMenuItem("🔺 Triângulo Completo (K4)", id="tpl-triangulo", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
-                            dbc.DropdownMenuItem("❌ Não Planar (K3,3)", id="tpl-k33", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
-                            dbc.DropdownMenuItem("🧙 Zé do Grafo", id="tpl-zedografo", style={'width': '220px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("🌳 Árvore", id="tpl-arvore", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("🏠 Casa", id="tpl-casa", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("⭐ Estrela", id="tpl-estrela", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("🧊 Hipercubo", id="tpl-hipercubo", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("🔺 Triângulo Completo (K4)", id="tpl-triangulo", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("❌ Não Planar (K3,3)", id="tpl-k33", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                            dbc.DropdownMenuItem("🧙 Zé do Grafo", id="tpl-zedografo", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
                         ]
                     )
                 ]),
