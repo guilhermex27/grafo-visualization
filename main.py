@@ -1497,12 +1497,15 @@ def exibir_detalhes_elemento(sel_nodes, sel_edges, direcao, current_style, modo_
             novo_estilo['display'] = 'none'
             return dash.no_update, novo_estilo
 
-        conteudo.append(html.B(f"Vértice: {node_id}"))
-        conteudo.append(html.Br())
+        conteudo.extend([
+            html.H6(html.B("Vértice Selecionado:"), className="fw mb-2"),
+            html.B("Rótulo: "), f"{node_id}", html.Br()
+        ])
 
         has_loop = G.has_edge(node_id, node_id)
-        conteudo.append(html.Span(f"Laço: {'Sim' if has_loop else 'Não'}"))
-        conteudo.append(html.Br())
+        conteudo.extend([
+            html.B("Laço: "), f"{'Sim' if has_loop else 'Não'}", html.Br()
+        ])
 
         if is_directed:
             in_edges = [f"{u}→{v}" for u, v in G.in_edges(node_id)]
@@ -1511,9 +1514,9 @@ def exibir_detalhes_elemento(sel_nodes, sel_edges, direcao, current_style, modo_
         else:
             todas_arestas = [f"{u}-{v}" for u, v in G.edges(node_id)]
 
-        conteudo.append(html.Span(
-            f"Arestas Incidentes: {', '.join(todas_arestas) if todas_arestas else 'Nenhuma'}"))
-        conteudo.append(html.Br())
+        conteudo.extend([
+            html.B("Arestas Incidentes: "), f"{', '.join(todas_arestas) if todas_arestas else 'Nenhuma'}", html.Br()
+        ])
 
         if is_directed:
             in_deg = G.in_degree(node_id)
@@ -1522,12 +1525,10 @@ def exibir_detalhes_elemento(sel_nodes, sel_edges, direcao, current_style, modo_
             succs = list(G.successors(node_id))
 
             conteudo.extend([
-                html.Span(f"Grau de Entrada: {in_deg}"), html.Br(),
-                html.Span(f"Grau de Saída: {out_deg}"), html.Br(),
-                html.Span(
-                    f"Antecessores: {', '.join(preds) if preds else 'Nenhum'}"), html.Br(),
-                html.Span(
-                    f"Sucessores: {', '.join(succs) if succs else 'Nenhum'}"), html.Br()
+                html.B("Grau de Entrada: "), f"{in_deg}", html.Br(),
+                html.B("Grau de Saída: "), f"{out_deg}", html.Br(),
+                html.B("Antecessores: "), f"{', '.join(preds) if preds else 'Nenhum'}", html.Br(),
+                html.B("Sucessores: "), f"{', '.join(succs) if succs else 'Nenhum'}", html.Br()
             ])
 
             # Classificação Orientada
@@ -1544,9 +1545,8 @@ def exibir_detalhes_elemento(sel_nodes, sel_edges, direcao, current_style, modo_
             vizinhos = list(G.neighbors(node_id))
 
             conteudo.extend([
-                html.Span(f"Grau: {deg}"), html.Br(),
-                html.Span(
-                    f"Vizinho(s): {', '.join(vizinhos) if vizinhos else 'Nenhum'}"), html.Br()
+                html.B("Grau: "), f"{deg}", html.Br(),
+                html.B("Vizinho(s): "), f"{', '.join(vizinhos) if vizinhos else 'Nenhum'}", html.Br()
             ])
 
             # Classificação Não Orientada
@@ -1557,7 +1557,9 @@ def exibir_detalhes_elemento(sel_nodes, sel_edges, direcao, current_style, modo_
             else:
                 tipo = "Comum"
 
-        conteudo.append(html.Span(f"Classificação: {tipo}"))
+        conteudo.extend([
+            html.B("Classificação: "), f"{tipo}"
+        ])
 
     # --------------------------------------------------------
     # 2. SE CLICOU EM UMA ARESTA
