@@ -129,6 +129,12 @@ def obter_propriedades_grafo(graph_obj):
 
         if nx.is_directed_acyclic_graph(graph_obj):
             props.append("DAG (Acíclico)")
+
+        if nx.is_tree(graph_obj):
+            props.append("Árvore")
+        elif nx.is_forest(graph_obj):
+            props.append("Floresta")
+
     else:
         if nx.is_connected(graph_obj):
             props.append("Conexo")
@@ -1217,7 +1223,7 @@ def toggle_connect_mode(n_clicks, is_on, snaps, modal_is_open, modal_editar_rotu
         button_text = "Modo: Conexão"
         help_text = "(Clique na Origem, depois no Destino)"
         btn_class = "btn btn-warning text-dark w-100 fw-bold mb-2"
-        msg = html.Span("Modo de Conexão Ativado. Selecione o vértice de origem.", style={
+        msg = html.Span("Modo de Conexão Ativado.", style={
                         'color': '#d97706'})
     else:
         button_text = "Modo: Seleção"
@@ -1345,7 +1351,7 @@ def reset_layout(n_clicks, toggle_peso):
     pos_dict = {} 
     
     if n_nodes > 0:
-        raio = max(150, n_nodes * 45) 
+        raio = max(150, n_nodes * 32) 
         centro_x, centro_y = 400, 300
         
         for i, node in enumerate(nodes):
@@ -1993,7 +1999,7 @@ def carregar_template(n_arvore, n_casa, n_estrela, n_hipercubo, n_triangulo, n_z
     novos_elementos = nx_to_cytoscape(G)
     
     layout = {'name': 'preset', 'animate': True, 'animationDuration': 500, 'fit': True, 'padding': 40}
-    msg = html.Span(f"Modelo '{nome_base}' carregado com sucesso!", style={'color': 'green'})
+    msg = html.Span(f"Modelo: '{nome_base}' carregado com sucesso!", style={'color': 'green'})
     
     dir_val = 'orientado' if config.get('is_directed', False) else 'nao_orientado'
     peso_val = 'com_peso' if config.get('is_weighted', True) else 'sem_peso'
