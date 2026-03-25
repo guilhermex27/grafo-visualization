@@ -138,9 +138,9 @@ button:disabled {
 
 .player {
     position: absolute;
-    bottom: 20px;
-    right: 20px; 
-    z-index: 50;
+    bottom: 0px;
+    right: 0px; 
+    z-index: 250;
     min-width: 400px;
 }
 

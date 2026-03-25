@@ -546,7 +546,20 @@ def serve_layout():
                         html.Div(id='texto-narracao-algo', className="text-dark fw-bold mb-3 text-center",
                                  style={'fontSize': '14px', 'fontStyle': 'italic', 'minHeight': '42px'}),
 
-                        html.Div(id='texto-variaveis-algo')
+                        html.Div(id='texto-variaveis-algo'),
+                        
+                        html.Div(className="d-grid mt-1 mb-1", children=[
+                            dbc.Button("Mostrar Tabela ▼", id="btn-toggle-tabela", color="black", size="sm", 
+                                       className="text-muted border-0 fw-bold", style={'fontSize': '11px', 'boxShadow': 'none', 'backgroundColor': 'transparent'}),
+                        ]),
+                        
+                        dbc.Collapse(
+                            id="collapse-tabela-exec",
+                            is_open=False, 
+                            children=[
+                                html.Div(id='tabela-estados-algo') 
+                            ]
+                        )
                     ])
                 ]),
 
@@ -1280,7 +1293,7 @@ def update_stylesheet(source_node_id, connect_mode_on, direcao, peso, current_fr
             if cor == "Cinza":
                 stylesheet.append({
                     'selector': f'node[id = "{no_id}"]',
-                    'style': {'background-color': '#999998', 'border-width': 4, 'border-color': "#858582", 'color': '#333'}
+                    'style': {'background-color': '#999998', 'border-width': 4, 'border-color': "#858582", 'color': '#222', 'text-outline-color': '#222'}
                 })
             elif cor == "Preto":
                 stylesheet.append({
@@ -1736,6 +1749,7 @@ def controlar_player(btn_play, btn_step, btn_prev, btn_inicio, btn_fim, n_ints, 
     Output('titulo-card-algo', 'children'), 
     Output('texto-narracao-algo', 'children'),
     Output('texto-variaveis-algo', 'children'),
+    Output('tabela-estados-algo', 'children'),
     Input('current-frame-store', 'data'),
     State('snapshots-store', 'data'),
     State('card-execucao-algo', 'style'),
@@ -1747,7 +1761,7 @@ def atualizar_painel_raiox(current_frame, snaps, current_style, algo):
 
     if not snaps or current_frame is None or (current_frame == 0 and not snaps):
         novo_estilo['display'] = 'none'
-        return novo_estilo, dash.no_update, "", []
+        return novo_estilo, dash.no_update, "", [], []
 
     novo_estilo['display'] = 'block'
     quadro = snaps[current_frame]
@@ -1868,9 +1882,8 @@ def atualizar_painel_raiox(current_frame, snaps, current_style, algo):
         ]
     )
 
-    conteudo_final = elementos_globais + [tabela_completa]
 
-    return novo_estilo, titulo, narracao, conteudo_final
+    return novo_estilo, titulo, narracao, elementos_globais, tabela_completa
 
 
 @app.callback(
@@ -2020,6 +2033,23 @@ def alternar_modal_ajuda(n_abrir, n_fechar, is_open):
    
     return not is_open
 
+@app.callback(
+    Output("collapse-tabela-exec", "is_open"),
+    Output("btn-toggle-tabela", "children"),
+    Input("btn-toggle-tabela", "n_clicks"),
+    State("collapse-tabela-exec", "is_open"),
+    prevent_initial_call=True
+)
+def alternar_tabela_execucao(n_clicks, is_open):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        raise PreventUpdate
+        
+    novo_estado = not is_open
+    texto_btn = "Ocultar Tabela ▲" if novo_estado else "Mostrar Tabela ▼"
+    
+    return novo_estado, texto_btn
+
 # =============================================================================
 # Callbacks Javascript (Lado do Cliente)
 # =============================================================================
@@ -2090,4 +2120,4 @@ def download_graph_file():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
