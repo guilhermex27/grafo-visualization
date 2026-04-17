@@ -6,6 +6,7 @@ from dash.exceptions import PreventUpdate
 import utils.graph_logic as gl
 from scripts.bfs import bfs_snapshots
 from scripts.dfs import dfs_snapshots
+from scripts.strongly_connected import scc_snapshots
 
 def registrar_callbacks_algoritmos(app):
 
@@ -50,8 +51,10 @@ def registrar_callbacks_algoritmos(app):
 
             if algo == 'bfs':
                 snaps = bfs_snapshots(gl.G, str(source))
-            else:
+            elif algo == 'dfs':
                 snaps = dfs_snapshots(gl.G, str(source))
+            elif algo == 'scc':
+                snaps = scc_snapshots(gl.G, str(source))
 
             msg = html.Span(f"Algoritmo {algo.upper()} carregado!", style={'color': 'green'})
             return snaps, 0, False, msg, False, "Modo: Seleção"
@@ -137,7 +140,7 @@ def registrar_callbacks_algoritmos(app):
         quadro = snaps[current_frame]
         narracao = quadro.get('descricao', '')
 
-        titulo = "BFS (Largura)" if algo == 'bfs' else "DFS (Profundidade)"
+        titulo = "BFS (Largura)" if algo == 'bfs' else "DFS (Profundidade)" if algo == 'dfs' else "SCC (Componentes Fortemente Conexas)"
         elementos_globais = []
 
         if algo == 'bfs' and 'Q' in quadro:
@@ -160,6 +163,7 @@ def registrar_callbacks_algoritmos(app):
                     html.B("Tempo: ",  style={'color': "#080808"}),
                     html.Span(f"{quadro['tempo']}", className="fw-bold me-3")
                 ]))
+                infos_dfs.append(html.Br())
        
             if 'pilha' in quadro:
                 pilha_atual = quadro['pilha']
@@ -179,54 +183,122 @@ def registrar_callbacks_algoritmos(app):
                     infos_dfs, className="mb-2 text-center", style={'fontSize': '14px'}
                 ))
 
+        if algo == 'scc':
+            infos_scc = []
+            
+            # --- 1. LÓGICA DA MAIOR SCC ---
+            sccs_atuais = quadro.get('sccs', [])
+            if sccs_atuais:
+                # Pega a lista com mais elementos dentro de sccs_atuais
+                maior_scc = max(sccs_atuais, key=len)
+                str_maior = ", ".join([str(v) for v in maior_scc])
+                texto_maior_scc = f"{{ {str_maior} }}"
+            else:
+                texto_maior_scc = "{ Ø }"
+                
+            infos_scc.append(html.Span([
+                html.B("Maior SCC: ", style={'color': "#080808"}),
+                html.Span(texto_maior_scc, className="fw-bold me-3") 
+            ]))
+            infos_scc.append(html.Br())
+
+            # --- 2. LÓGICA DA PILHA ---
+            if 'stack' in quadro:
+                pilha_atual = quadro['stack']
+                if pilha_atual:
+                    str_pilha = ", ".join(reversed([str(v) for v in pilha_atual]))
+                    texto_pilha = f"[Topo -> {str_pilha}]"
+                else:
+                    texto_pilha = "[ Ø ]"
+                    
+                infos_scc.append(html.Span([
+                    html.B("Pilha: ",  style={'color': "#080808"}),
+                    html.Span(texto_pilha, className="fw-bold") 
+                ]))
+
+            # Adiciona as duas informações lado a lado no cartão
+            if infos_scc:
+                elementos_globais.append(html.Div(
+                    infos_scc, className="mb-2 text-center", style={'fontSize': '14px'}
+                ))
+        
+        # 2. CONSTRUÇÃO DA TABELA DE VÉRTICES
+        # (Lemos todos os dicionários possíveis, usando get para evitar erros se a chave não existir)
         cores_dict = quadro.get('c', {})
         d_dict = quadro.get('d', {})
         pi_dict = quadro.get('pi', {})
         f_dict = quadro.get('f', {})
+        
+        # Variáveis exclusivas do Tarjan (SCC)
+        index_dict = quadro.get('index', {})
+        lowlink_dict = quadro.get('lowlink', {})
+        on_stack = quadro.get('on_stack', set())
 
-        vertices = sorted(list(cores_dict.keys()), key=lambda x: int(x) if str(x).isdigit() else x)
+        # Pega a união de todos os vértices que já foram descobertos em qualquer algoritmo
+        todos_vertices_vistos = set(cores_dict.keys()) | set(index_dict.keys())
+        vertices = sorted(list(todos_vertices_vistos), key=lambda x: int(x) if str(x).isdigit() else x)
 
         thead_cols = [
-            html.Th("V", title="Vértice", className="text-center"),
-            html.Th("Cor", className="text-center")
+            html.Th("V", title="Vértice", className="text-center")
         ]
+        
+        # Ajusta as colunas dependendo do algoritmo
         if algo == 'bfs':
             thead_cols.extend([
+                html.Th("Cor", className="text-center"),
                 html.Th("d", title="Distância", className="text-center"),
                 html.Th("π", title="Predecessor", className="text-center")
             ])
-        else:
+        elif algo == 'dfs':
             thead_cols.extend([
+                html.Th("Cor", className="text-center"),
                 html.Th("d", title="Descoberta", className="text-center"),
                 html.Th("f", title="Finalização", className="text-center"),
                 html.Th("π", title="Predecessor", className="text-center")
             ])
+        elif algo == 'scc': # NOVO: Cabeçalho para Tarjan
+            thead_cols.extend([
+                html.Th("Idx", title="Index (Tempo de Descoberta)", className="text-center"),
+                html.Th("Low", title="Lowlink (Menor alcance)", className="text-center"),
+                html.Th("Pilha", title="Está na Pilha?", className="text-center")
+            ])
 
         tbody_rows = []
         for v in vertices:
-            cor_nome = cores_dict.get(v, "Branco")
-            cor_badge = "⚪" if cor_nome == "Branco" else ("🔘" if cor_nome == "Cinza" else "⚫")
-            pi_v = pi_dict.get(v, "-")
-            if pi_v is None: pi_v = "-"
-            d_v = d_dict.get(v, "-")
-            if d_v is None or d_v == float('inf'): d_v = "∞"
+            row_cols = [html.Td(v, className="fw-bold text-center align-middle")]
 
-            row_cols = [
-                html.Td(v, className="fw-bold text-center align-middle"),
-                html.Td(cor_badge, className="text-center align-middle")
-            ]
+            if algo in ['bfs', 'dfs']:
+                cor_nome = cores_dict.get(v, "Branco")
+                cor_badge = "⚪" if cor_nome == "Branco" else ("🔘" if cor_nome == "Cinza" else "⚫")
+                pi_v = pi_dict.get(v, "-")
+                if pi_v is None: pi_v = "-"
+                d_v = d_dict.get(v, "-")
+                if d_v is None or d_v == float('inf'): d_v = "∞"
+                
+                row_cols.append(html.Td(cor_badge, className="text-center align-middle"))
 
             if algo == 'bfs':
                 row_cols.extend([
                     html.Td(str(d_v), className="text-center align-middle"),
                     html.Td(str(pi_v), className="text-center align-middle")
                 ])
-            else:
+            elif algo == 'dfs':
                 f_v = f_dict.get(v, "-") if f_dict else "-"
                 row_cols.extend([
                     html.Td(str(d_v), className="text-center align-middle text-success fw-bold"),
                     html.Td(str(f_v), className="text-center align-middle text-danger fw-bold"),
                     html.Td(str(pi_v), className="text-center align-middle")
+                ])
+            elif algo == 'scc': # NOVO: Linhas da tabela do Tarjan
+                idx_v = index_dict.get(v, "-")
+                low_v = lowlink_dict.get(v, "-")
+                na_pilha = "Sim" if v in on_stack else "Não"
+                cor_texto_pilha = "text-primary fw-bold" if na_pilha == "Sim" else "text-muted"
+
+                row_cols.extend([
+                    html.Td(str(idx_v), className="text-center align-middle fw-bold"),
+                    html.Td(str(low_v), className="text-center align-middle text-danger fw-bold"),
+                    html.Td(na_pilha, className=f"text-center align-middle {cor_texto_pilha}")
                 ])
 
             tbody_rows.append(html.Tr(row_cols))

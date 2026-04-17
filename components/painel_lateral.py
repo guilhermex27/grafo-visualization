@@ -60,7 +60,7 @@ def criar_painel_lateral(tipo_dir_val, tipo_peso_val):
                 html.H6("Algoritmos",
                         className="fw-bold mb-3 text-center"),
                 dcc.Dropdown(id='dropdown-algo', options=[{'label': 'BFS (Busca em Largura)', 'value': 'bfs'}, {
-                             'label': 'DFS (Busca em Profundidade)', 'value': 'dfs'}], placeholder="Escolha o Algoritmo", className="mb-2", style={'fontSize': '12px'}),
+                             'label': 'DFS (Busca em Profundidade)', 'value': 'dfs'}, {'label': 'SCC (Componentes Fortemente Conexas)', 'value': 'scc'}], placeholder="Escolha o Algoritmo", className="mb-2", style={'fontSize': '12px'}),
                 dcc.Dropdown(id='dropdown-source', placeholder="Vértice de Origem",
                              className="mb-3", style={'fontSize': '12px'}),
                 html.Button('Carregar Algoritmo', id='btn-carregar-algo',

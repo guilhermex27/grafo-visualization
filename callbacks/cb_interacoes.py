@@ -527,10 +527,9 @@ def registrar_callbacks_interacoes(app):
 
         if snaps and current_frame is not None and current_frame < len(snaps):
             quadro = snaps[current_frame]
+            
+            # --- LÓGICA DE CORES PARA BFS/DFS ---
             cores = quadro.get('c', {})
-            pi_dict = quadro.get('pi', {})
-            aresta_atual = quadro.get('aresta_atual')
-
             for no_id, cor in cores.items():
                 if cor == "Cinza":
                     stylesheet.append({
@@ -542,7 +541,71 @@ def registrar_callbacks_interacoes(app):
                         'selector': f'node[id = "{no_id}"]',
                         'style': {'background-color': '#212121', 'color': 'white', 'text-outline-color': 'white', 'border-color': '#212121'}
                     })
+                    
+            # --- NOVA LÓGICA DE CORES PARA SCC (TARJAN) ---
+            if 'index' in quadro:
+                visitados = quadro.get('index', {}).keys()
+                sccs = quadro.get('sccs', [])
+                scc_formada = quadro.get('scc_formada', None)
+                
+                # Paleta de cores para as SCCs: (Cor de Fundo, Cor da Borda)
+                paleta = [
+                    ('#166534', '#14532d'), # Verde
+                    ('#6b21a8', '#581c87'), # Roxo
+                    ('#b45309', '#78350f'), # Laranja Escuro
+                    ('#be185d', '#831843'), # Rosa Escuro
+                    ('#0f766e', '#115e59'), # Teal/Ciano
+                    ('#1d4ed8', '#1e3a8a'), # Azul Escuro
+                    ('#b91c1c', '#7f1d1d'), # Vermelho
+                ]
+                
+                # 1. Pinta de Azul Claro todos que já foram descobertos
+                for v in visitados:
+                    stylesheet.append({
+                        'selector': f'node[id = "{v}"]',
+                        'style': {'background-color': '#e0f2fe', 'border-color': '#0284c7'}
+                    })
+                    
+                # 2. Pinta as SCCs consolidadas E suas arestas internas
+                for i, conjunto_scc in enumerate(sccs):
+                    # Pega uma cor da paleta (usa o módulo % para não dar erro se tiverem mais de 7 SCCs)
+                    cor_fundo, cor_borda = paleta[i % len(paleta)]
+                    
+                    # Colore os vértices dessa SCC
+                    for v in conjunto_scc:
+                        stylesheet.append({
+                            'selector': f'node[id = "{v}"]',
+                            'style': {'background-color': cor_fundo, 'border-color': cor_borda, 'color': 'white', 'text-outline-color': 'white'}
+                        })
+                        
+                    # Colore as arestas que ligam dois vértices DENTRO da mesma SCC
+                    for u in conjunto_scc:
+                        for v in conjunto_scc:
+                            if direcao == 'orientado':
+                                seletor_aresta_scc = f'edge[source = "{u}"][target = "{v}"]'
+                            else:
+                                seletor_aresta_scc = f'edge[source = "{u}"][target = "{v}"], edge[source = "{v}"][target = "{u}"]'
+                                
+                            stylesheet.append({
+                                'selector': seletor_aresta_scc,
+                                'style': {
+                                    'line-color': cor_fundo, 
+                                    'target-arrow-color': cor_fundo, 
+                                    'width': 4,
+                                    'z-index': 100 # Joga a aresta colorida para cima
+                                }
+                            })
+                            
+                # 3. Dá um destaque visual (Amarelo Piscante) na ação exata em que a SCC acabou de ser descoberta
+                if scc_formada and quadro.get('acao') == 'Formando SCC':
+                    for v in scc_formada:
+                        stylesheet.append({
+                            'selector': f'node[id = "{v}"]',
+                            'style': {'background-color': cor_fundo, 'border-color': cor_borda, 'border-width': 5}
+                        })
 
+            # --- ARESTAS DO BFS/DFS ---
+            pi_dict = quadro.get('pi', {})
             for filho, pai in pi_dict.items():
                 if pai is not None:
                     if direcao == 'orientado':
@@ -554,6 +617,12 @@ def registrar_callbacks_interacoes(app):
                         'selector': seletor,
                         'style': {'line-color': '#FF9800', 'width': 4, 'target-arrow-color': '#FF9800'}
                     })
+
+            # --- ARESTA DE AÇÃO ATUAL (Destaque em Vermelho) ---
+            aresta_atual = quadro.get('aresta_atual') 
+            if not aresta_atual and 'v' in quadro and 'w' in quadro:
+                 # Puxa as variáveis w e v do seu script SCC para pintar a aresta
+                 aresta_atual = (quadro['v'], quadro['w'])
 
             if aresta_atual:
                 u, v = aresta_atual
