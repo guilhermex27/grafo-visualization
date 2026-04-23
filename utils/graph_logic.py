@@ -237,3 +237,21 @@ def save_graph_data(is_weighted=True):
     }
     with open('data/config.json', 'w') as f:
         json.dump(config, f)
+        
+def obter_matriz_adjacencia(graph_obj):
+    
+    indices = sorted([n for n in graph_obj.nodes()], key=int)
+    colunas = len(indices)
+
+    mapa_indices = {no: pos for pos, no in enumerate(indices)}
+
+    data_rows = [[0] * colunas for _ in range(colunas)]
+
+    for origem, destinos in graph_obj.adjacency():
+        for destino in destinos:
+            i = mapa_indices[origem]
+            j = mapa_indices[destino]
+                
+            data_rows[i][j] = 1
+    
+    return indices, data_rows

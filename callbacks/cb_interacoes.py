@@ -7,7 +7,7 @@ import base64
 import math
 
 import utils.graph_logic as gl
-from utils.graph_logic import save_graph_data, load_graph_data, nx_to_cytoscape, obter_propriedades_grafo
+from utils.graph_logic import save_graph_data, load_graph_data, nx_to_cytoscape, obter_propriedades_grafo, obter_matriz_adjacencia
 
 def registrar_callbacks_interacoes(app):
 
@@ -30,6 +30,7 @@ def registrar_callbacks_interacoes(app):
         Output('upload-data', 'contents'),
         Output('texto-info-grafo', 'children'),
         Output('toggle-peso', 'value'),
+        Output('texto-info-grafo-matriz', 'children'),
         Input('add-vertex-button', 'n_clicks'),
         Input('delete-selected-button', 'n_clicks'),
         Input('clear-all-button', 'n_clicks'),
@@ -455,8 +456,33 @@ def registrar_callbacks_interacoes(app):
             html.B("Peso: "), tipo_peso_tela, html.Br(),
             html.B("Propriedades: "), propriedades_atuais
         ]
+     
+        indices, data_rows = obter_matriz_adjacencia(gl.G)
+        
+        m_top = [ html.Th("V", title="Vértices", className="text-center") ] + [html.Th(f"{n}", title=f"Vértice {n}",className="text-center") for n in indices]
+        
+        tbody_rows = []
+        for idx, row_data in zip(indices, data_rows):
+           
+            table_row = [html.Th(idx, className="text-center")]
+           
+            table_row.extend([html.Td(cell, className="text-center") for cell in row_data])
+            
+            tbody_rows.append(html.Tr(table_row))
+        
+        info_matriz = html.Div(
+            style={'height': '250px', 'overflowY': 'auto'},
+            children=[
+                html.H6(html.B("Matriz de Adjacência:"), className="fw mb-2"),
+                html.Br(),
+                html.Table(className="table table-sm table-bordered table-striped mb-0", style={'fontSize': '12px'}, children=[
+                    html.Thead(html.Tr(m_top), className="table-light"),
+                    html.Tbody(tbody_rows)
+                ])
+            ]
+        )
 
-        return new_elements, msg, layout_output, new_source_node, empty_msg, direcao_output, upload_reset, info_texto, peso_output
+        return new_elements, msg, layout_output, new_source_node, empty_msg, direcao_output, upload_reset, info_texto, peso_output, info_matriz
 
     @app.callback(
         Output('connect-mode-store', 'data'),
@@ -618,10 +644,9 @@ def registrar_callbacks_interacoes(app):
                         'style': {'line-color': '#FF9800', 'width': 4, 'target-arrow-color': '#FF9800'}
                     })
 
-            # --- ARESTA DE AÇÃO ATUAL (Destaque em Vermelho) ---
+            # --- ARESTA DE AÇÃO ATUAL ---
             aresta_atual = quadro.get('aresta_atual') 
             if not aresta_atual and 'v' in quadro and 'w' in quadro:
-                 # Puxa as variáveis w e v do seu script SCC para pintar a aresta
                  aresta_atual = (quadro['v'], quadro['w'])
 
             if aresta_atual:

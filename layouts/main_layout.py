@@ -55,6 +55,33 @@ def serve_layout():
         html.B("Peso: "), tipo_peso_init, html.Br(),
         html.B("Propriedades: "), propriedades_init
     ]
+    
+    indices, data_rows = gl.obter_matriz_adjacencia(gl.G)
+    
+    m_top = [ html.Th("V", title="Vértices", className="text-center") ] + [html.Th(f"{n}", title=f"Vértice {n}",className="text-center") for n in indices]
+        
+    tbody_rows = []
+    for idx, row_data in zip(indices, data_rows):
+       
+        table_row = [html.Th(idx, className="text-center")]
+       
+        table_row.extend([html.Td(cell, className="text-center") for cell in row_data])
+        
+        tbody_rows.append(html.Tr(table_row))
+    
+    info_matriz = html.Div(
+        style={'height': '250px', 'overflowY': 'auto'},
+        children=[
+            html.H6(html.B("Matriz de Adjacência:"), className="fw mb-2"),
+            html.Br(),
+            html.Table(className="table table-sm table-bordered table-striped mb-0", style={'fontSize': '12px'}, children=[
+                html.Thead(html.Tr(m_top), className="table-light"),
+                html.Tbody(tbody_rows)
+            ])
+        ]
+    )
+    
+    initial_matriz_children = info_matriz
 
     return dbc.Container(fluid=True, style={'padding': '10px', 'overflowX': 'hidden'}, children=[
         
@@ -104,7 +131,7 @@ def serve_layout():
                 html.Button(id='btn-hidden-center', n_clicks=0,
                             style={'display': 'none'}),
 
-                criar_cartao_info_grafo(initial_info_children),
+                criar_cartao_info_grafo(initial_info_children, initial_matriz_children),
                 criar_cartao_execucao(),
                 criar_player_flutuante(),
             ]),
