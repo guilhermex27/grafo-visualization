@@ -341,7 +341,7 @@ def registrar_callbacks_algoritmos(app):
 
         estilo_painel = {
             'position': 'absolute', 'right': '0', 'top': '0',
-            'width': '300px', 'height': '85vh', 'padding': '0', 'zIndex': 100
+            'width': '300px', 'height': '88vh', 'padding': '0', 'zIndex': 100
         }
 
         if snaps:

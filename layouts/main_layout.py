@@ -70,7 +70,7 @@ def serve_layout():
         tbody_rows.append(html.Tr(table_row))
     
     info_matriz = html.Div(
-        style={'height': '250px', 'overflowY': 'auto'},
+        style={'maxHeight': '250px', 'overflowY': 'auto'},
         children=[
             html.H6(html.B("Matriz de Adjacência:"), className="fw mb-2"),
             html.Br(),
@@ -83,7 +83,7 @@ def serve_layout():
     
     initial_matriz_children = info_matriz
 
-    return dbc.Container(fluid=True, style={'padding': '10px', 'overflowX': 'hidden'}, children=[
+    return dbc.Container(fluid=True, style={'overflowX': 'hidden'}, children=[
         
         # STORES
         dcc.Store(id='source-node-store', data=None),
@@ -110,7 +110,7 @@ def serve_layout():
         dbc.Row(style={'margin': '0', 'position': 'relative', 'overflowX': 'hidden'}, children=[
 
             # LADO ESQUERDO: O GRAFO 
-            dbc.Col(id='coluna-grafo', width=12, style={'position': 'relative', 'border': '1px solid #ccc', 'backgroundColor': '#fff', 'height': '85vh', 'padding': '0'}, children=[
+            dbc.Col(id='coluna-grafo', width=12, style={'position': 'relative', 'border': '1px solid #ccc', 'backgroundColor': '#fff', 'height': '88vh', 'padding': '0'}, children=[
                 cyto.Cytoscape(
                     id='cytoscape-graph', elements=initial_elements, stylesheet=gl.BASE_STYLESHEET,
                     style={'width': '100%', 'height': '100%'},

@@ -11,15 +11,6 @@ from utils.graph_logic import save_graph_data, load_graph_data, nx_to_cytoscape,
 
 def registrar_callbacks_interacoes(app):
 
-    def _update_node_positions(cyto_elements):
-        if not cyto_elements:
-            return
-        for element in cyto_elements:
-            if 'position' in element and 'id' in element.get('data', {}):
-                node_id = element['data']['id']
-                if gl.G.has_node(node_id):
-                    gl.G.nodes[node_id]['position'] = element['position']
-
     @app.callback(
         Output('cytoscape-graph', 'elements'),
         Output('action-output-message', 'children'),
@@ -68,6 +59,9 @@ def registrar_callbacks_interacoes(app):
         if not ctx.triggered:
             raise PreventUpdate
         prop_id = ctx.triggered[0]['prop_id']
+        
+        if cyto_elements:
+            gl.atualizar_posicoes_no_grafo(cyto_elements)
 
         msg = dash.no_update
         layout_output = dash.no_update
@@ -76,6 +70,7 @@ def registrar_callbacks_interacoes(app):
         direcao_output = dash.no_update
         upload_reset = dash.no_update
         peso_output = dash.no_update
+        nos_adicionados = []
 
         if prop_id == 'add-vertex-button.n_clicks':
             if snaps:
@@ -94,6 +89,7 @@ def registrar_callbacks_interacoes(app):
                 pos_y = 80 + (linha * 70)
 
                 gl.G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
+                nos_adicionados.append(str(new_id))
                 msg = html.Span(f"Vértice {new_id} adicionado.", style={'color': 'green'})
                 graph_changed = True
 
@@ -119,15 +115,17 @@ def registrar_callbacks_interacoes(app):
                         while new_id in node_ids:
                             new_id += 1
                         gl.G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
+                        nos_adicionados.append(str(new_id))
                         msg = html.Span(f"Vértice {new_id} adicionado.", style={'color': 'green'})
                         graph_changed = True
                     except ValueError:
                         msg = dash.no_update
 
         elif prop_id == 'btn-auto-save-pos.n_clicks':
-            _update_node_positions(cyto_elements)
-            save_graph_data(toggle_peso == 'com_peso')
-            raise PreventUpdate
+            # Como já sincronizamos no topo da função, basta salvar
+            gl.save_graph_data(toggle_peso == 'com_peso')
+            # msg = html.Span("Posições salvas!", style={'color': 'blue'})
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
         elif prop_id == 'cytoscape-graph.tapNodeData':
             if connect_mode_on:
@@ -418,9 +416,10 @@ def registrar_callbacks_interacoes(app):
         if graph_changed:
             tipo_peso_final = peso_output if peso_output != dash.no_update else toggle_peso
             is_weighted = (tipo_peso_final == 'com_peso')
+            
             save_graph_data(is_weighted)
 
-            new_elements = nx_to_cytoscape(gl.G)
+            new_elements = gl.nx_to_cytoscape(gl.G, manter_posicoes=True, novos_nos=nos_adicionados)
             empty_msg = "" if gl.G.nodes else "Grafo vazio. Adicione um vértice para começar."
 
             if not gl.G.nodes:

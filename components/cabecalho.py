@@ -2,7 +2,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc
 
 def criar_cabecalho():
-    return dbc.Row(id='top-buttons-container', className="align-items-center mb-3 mt-2", style={'transition': 'opacity 0.3s'}, children=[
+    return dbc.Row(id='top-buttons-container', className="align-items-center mb-2 mt-2", style={'transition': 'opacity 0.3s'}, children=[
 
         dbc.Col(html.H2("Editor de Grafo Interativo", className="m-0 fw-bold",
                 style={'color': '#111', 'paddingLeft': '10px'}), width=8),

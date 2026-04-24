@@ -4,7 +4,7 @@ from dash import html, dcc
 def criar_painel_lateral(tipo_dir_val, tipo_peso_val):
     return html.Div(id='coluna-painel', style={
         'position': 'absolute', 'right': '0', 'top': '0',
-        'width': '300px', 'height': '85vh', 'padding': '0',
+        'width': '300px', 'height': '88vh', 'padding': '0',
         'transition': 'transform 0.3s ease', 'zIndex': 100,
         'transform': 'translateX(100%)'
     }, children=[

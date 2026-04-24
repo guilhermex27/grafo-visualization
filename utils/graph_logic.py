@@ -1,6 +1,7 @@
 import os
 import networkx as nx
 import json
+import utils.graph_logic as gl
 
 G = nx.Graph()
 GRAPH_FILE_PATH = 'data/graph.txt'
@@ -61,14 +62,34 @@ BASE_STYLESHEET = [
     },
 ]
 
-def nx_to_cytoscape(graph_obj):
+def atualizar_posicoes_no_grafo(cyto_elements):
+    """Sincroniza as posições visuais da tela com o objeto NetworkX no Python."""
+    if not cyto_elements:
+        return
+    for element in cyto_elements:
+        if 'position' in element and 'id' in element.get('data', {}):
+            node_id = element['data']['id']
+            if node_id in gl.G.nodes:
+                gl.G.nodes[node_id]['position'] = element['position']
+
+def nx_to_cytoscape(graph_obj, manter_posicoes=False, novos_nos=None):
+    """Converte o grafo para Cytoscape, tratando a persistência de posição."""
+    if novos_nos is None:
+        novos_nos = []
+        
     cy_elements = []
     for node, attrs in graph_obj.nodes(data=True):
         label_atual = attrs.get('label', str(node))
         cy_node = {'data': {'id': str(node), 'label': str(label_atual)}}
+        
         if 'position' in attrs:
-            cy_node['position'] = attrs['position']
+            # Só enviamos 'position' se for um carregamento total (F5) ou um nó novo.
+            # Se for uma atualização de callback, omitimos para o Cytoscape manter o que foi arrastado.
+            if not manter_posicoes or str(node) in novos_nos:
+                cy_node['position'] = attrs['position']
+                
         cy_elements.append(cy_node)
+        
     for source, target, attrs in graph_obj.edges(data=True):
         s = attrs.get('real_source', source)
         t = attrs.get('real_target', target)
@@ -76,6 +97,7 @@ def nx_to_cytoscape(graph_obj):
         if attrs.get('label'):
             cy_edge['data']['label'] = attrs['label']
         cy_elements.append(cy_edge)
+        
     return cy_elements
 
 def obter_propriedades_grafo(graph_obj):
@@ -231,9 +253,9 @@ def save_graph_data(is_weighted=True):
             f.write(linha + "\n")
 
     config = {
-        'is_directed': G.is_directed(),
+        'is_directed': gl.G.is_directed(),
         'is_weighted': is_weighted,
-        'positions': {str(n): G.nodes[n].get('position', {'x': 0, 'y': 0}) for n in G.nodes}
+        'positions': {str(n): gl.G.nodes[n].get('position', {'x': 0, 'y': 0}) for n in gl.G.nodes}
     }
     with open('data/config.json', 'w') as f:
         json.dump(config, f)

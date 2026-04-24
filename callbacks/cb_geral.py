@@ -118,7 +118,7 @@ def registrar_callbacks_geral(app):
     def alternar_painel_inteiro(n_clicks):
         estilo_painel = {
             'position': 'absolute', 'right': '0', 'top': '0',
-            'width': '300px', 'height': '85vh', 'padding': '0',
+            'width': '300px', 'height': '88vh', 'padding': '0',
             'transition': 'transform 0.3s ease', 'zIndex': 100
         }
 
@@ -131,17 +131,22 @@ def registrar_callbacks_geral(app):
 
     @app.callback(
         Output('card-info-grafo', 'style'),
+        Output('btn-info-grafo', 'style', allow_duplicate=True),
         Input('btn-info-grafo', 'n_clicks'),
         State('card-info-grafo', 'style'),
+        State('btn-info-grafo', 'style'),
         prevent_initial_call=True
     )
-    def toggle_info_card(n_clicks, current_style):
+    def toggle_info_card(n_clicks, current_style, current_style_btn):
         novo_estilo = current_style.copy()
+        novo_estilo_btn = current_style_btn.copy()
         if novo_estilo.get('display') == 'none':
             novo_estilo['display'] = 'block'
+            novo_estilo_btn['backgroundImage'] = 'url("/assets/icons/info-light.svg")'
         else:
             novo_estilo['display'] = 'none'
-        return novo_estilo
+            novo_estilo_btn['backgroundImage'] = 'url("/assets/icons/info.svg")'
+        return novo_estilo, novo_estilo_btn
 
     @app.callback(
         Output('cytoscape-graph', 'elements', allow_duplicate=True),
