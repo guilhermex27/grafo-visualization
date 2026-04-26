@@ -277,3 +277,38 @@ def obter_matriz_adjacencia(graph_obj):
             data_rows[i][j] = 1
     
     return indices, data_rows
+
+def gerar_conteudo_download(is_weighted=True, incluir_posicoes=False):
+    """Gera o texto final do arquivo baseado na escolha do usuário."""
+    linhas_arestas = []
+    for source, target, data in gl.G.edges(data=True):
+        s = data.get('real_source', source)
+        t = data.get('real_target', target)
+        peso = data.get('label', '1')
+
+        if is_weighted:
+            linhas_arestas.append(f"{s} {t} {peso}")
+        else:
+            linhas_arestas.append(f"{s} {t}")
+
+        if not gl.G.is_directed() and s != t:
+            if is_weighted:
+                linhas_arestas.append(f"{t} {s} {peso}")
+            else:
+                linhas_arestas.append(f"{t} {s}")
+
+    # Cabeçalho padrão: <n_vertices> <n_arestas>
+    cabecalho = f"{gl.G.number_of_nodes()} {len(linhas_arestas)}\n"
+    corpo = "\n".join(linhas_arestas)
+    conteudo_final = cabecalho + corpo
+
+    # Se o usuário confirmou as posições, anexamos o JSON após o separador
+    if incluir_posicoes:
+        config = {
+            'is_directed': gl.G.is_directed(),
+            'is_weighted': is_weighted,
+            'positions': {str(n): gl.G.nodes[n].get('position', {'x': 0, 'y': 0}) for n in gl.G.nodes}
+        }
+        conteudo_final += "\n---\n" + json.dumps(config)
+        
+    return conteudo_final

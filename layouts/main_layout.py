@@ -122,7 +122,7 @@ def serve_layout():
                 dcc.Input(id='shift-click-coords', type='text',
                           style={'display': 'none'}, value=""),
                 dcc.Store(id='camera-tracker-dummy'),
-                html.Button(id='btn-auto-save-pos', style={'display': 'none'}),
+                dcc.Input(id='auto-save-data', type='text', style={'display': 'none'}, value=""),
 
                 html.Div("" if gl.G.nodes else "Grafo vazio. Adicione um vértice para começar.", id='empty-graph-message', style={'position': 'absolute', 'top': '50%', 'left': '50%', 'transform': 'translate(-50%, -50%)', 'fontSize': '24px', 'color': '#888','fontWeight': 'bold',
                          'width': '100%', 'textAlign': 'center', 'pointerEvents': 'none'}),

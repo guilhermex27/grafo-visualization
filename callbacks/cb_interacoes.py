@@ -1,9 +1,12 @@
 import dash
 from dash import html
+from dash import dcc
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import networkx as nx
 import base64
+import os
+import json
 import math
 
 import utils.graph_logic as gl
@@ -34,7 +37,7 @@ def registrar_callbacks_interacoes(app):
         Input('toggle-peso', 'value'),
         Input('btn-salvar-rotulo', 'n_clicks'),
         Input('shift-click-coords', 'value'),
-        Input('btn-auto-save-pos', 'n_clicks'),
+        Input('auto-save-data', 'value'),
         State('cytoscape-graph', 'selectedNodeData'),
         State('cytoscape-graph', 'selectedEdgeData'),
         State('upload-data', 'filename'),
@@ -51,7 +54,7 @@ def registrar_callbacks_interacoes(app):
         prevent_initial_call=True
     )
     def main_callback(
-        add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao, toggle_peso, btn_salvar_rotulo, shift_click_data, btn_auto_save,
+        add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao, toggle_peso, btn_salvar_rotulo, shift_click_data, auto_save_data,
         sel_nodes, sel_edges, filename, cyto_elements, source_node_id, connect_mode_on,
         aresta_edit_store_data, modal_input_value, snaps, modal_is_open, modal_rotulo_is_open, modal_input_rotulo, vertex_edit_store_data
     ):
@@ -120,12 +123,29 @@ def registrar_callbacks_interacoes(app):
                         graph_changed = True
                     except ValueError:
                         msg = dash.no_update
-
-        elif prop_id == 'btn-auto-save-pos.n_clicks':
-            # Como já sincronizamos no topo da função, basta salvar
-            gl.save_graph_data(toggle_peso == 'com_peso')
-            # msg = html.Span("Posições salvas!", style={'color': 'blue'})
-            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        
+        elif prop_id == 'auto-save-data.value':
+            if auto_save_data:
+                try:
+                    # Decodifica o JSON vindo do JS
+                    data_package = json.loads(auto_save_data)
+                    pos_dict = data_package.get('posicoes', {})
+                    
+                    # Atualiza as posições no objeto global gl.G
+                    for n_id, pos in pos_dict.items():
+                        if gl.G.has_node(n_id):
+                            gl.G.nodes[n_id]['position'] = pos
+                    
+                    # Salva no arquivo físico (mantendo se tem peso ou não)
+                    gl.save_graph_data(toggle_peso == 'com_peso')
+                    
+                    # Mensagem de sucesso
+                    msg = html.Span("Posições salvas!", style={'color': 'blue'})
+                    
+                    return dash.no_update, msg, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                except Exception as e:
+                    raise PreventUpdate
+            raise PreventUpdate
 
         elif prop_id == 'cytoscape-graph.tapNodeData':
             if connect_mode_on:
@@ -296,9 +316,23 @@ def registrar_callbacks_interacoes(app):
 
         elif prop_id == 'upload-data.contents':
             if upload_contents:
+                # --- PRECAUÇÃO 1: Barrar extensões diferentes de .txt ---
+                if not filename.lower().endswith('.txt'):
+                    msg = html.Span("Erro: Apenas arquivos .txt são permitidos.", style={'color': 'red', 'fontWeight': 'bold'})
+                    return dash.no_update, msg, dash.no_update, dash.no_update, dash.no_update, dash.no_update, None, dash.no_update, dash.no_update, dash.no_update
+
                 _, content_string = upload_contents.split(',')
                 decoded = base64.b64decode(content_string).decode('utf-8')
-                linhas = [linha.strip() for linha in decoded.splitlines() if linha.strip()]
+                
+                # Normaliza quebras de linha (evita bugs entre Windows/Linux)
+                decoded = decoded.replace('\r\n', '\n')
+
+                # --- PRECAUÇÃO 2: Verificar o separador '---' ---
+                partes_arquivo = decoded.split('\n---\n')
+                texto_grafo = partes_arquivo[0]
+                texto_json = partes_arquivo[1] if len(partes_arquivo) > 1 else None
+
+                linhas = [linha.strip() for linha in texto_grafo.splitlines() if linha.strip()]
 
                 arquivo_valido = True
                 msg_erro = ""
@@ -307,6 +341,7 @@ def registrar_callbacks_interacoes(app):
                 v_header = e_header = qtd_com_peso = qtd_sem_peso = 0
                 arestas_lidas = {}
 
+                # 1. Validação do TXT (Grafo)
                 if not linhas:
                     arquivo_valido, msg_erro = False, "O arquivo está vazio."
                 else:
@@ -351,45 +386,96 @@ def registrar_callbacks_interacoes(app):
                     elif qtd_com_peso > 0 and qtd_sem_peso > 0:
                         arquivo_valido, msg_erro = False, "Inconsistência: Mistura de arestas COM e SEM peso no mesmo arquivo."
 
+                # --- PRECAUÇÃO 3: Validação do JSON ---
+                config_json = None
+                if arquivo_valido and texto_json:
+                    try:
+                        config_json = json.loads(texto_json.strip())
+                        
+                        # Verifica se as chaves existem e são do tipo certo
+                        if not isinstance(config_json.get('is_directed'), bool):
+                            raise ValueError("'is_directed' deve ser booleano.")
+                        if not isinstance(config_json.get('is_weighted'), bool):
+                            raise ValueError("'is_weighted' deve ser booleano.")
+                        if 'positions' not in config_json or not isinstance(config_json['positions'], dict):
+                            raise ValueError("Falta o dicionário de 'positions'.")
+                            
+                        # Verifica se a quantidade de posições bate com o cabeçalho do grafo
+                        if len(config_json['positions']) != v_header:
+                            raise ValueError(f"Quantidade de posições ({len(config_json['positions'])}) não bate com os {v_header} vértices declarados.")
+                            
+                    except json.JSONDecodeError:
+                        arquivo_valido, msg_erro = False, "O JSON de posições está mal formatado ou corrompido."
+                    except Exception as e:
+                        arquivo_valido, msg_erro = False, f"Erro nas configurações: {str(e)}"
+
                 if arquivo_valido:
-                    is_symmetric = True
-                    for (u, v), peso in arestas_lidas.items():
-                        if u == v:
-                            continue
-                        if (v, u) not in arestas_lidas or arestas_lidas[(v, u)] != peso:
-                            is_symmetric = False
-                            break
-
+                    # Salva os arquivos limpos e separados para o backend ler
                     with open(gl.GRAPH_FILE_PATH, 'w') as f:
-                        f.write(decoded)
-
-                    if is_symmetric and qtd_arestas_reais > 0:
-                        gl.G = nx.Graph()
-                        direcao_output = 'nao_orientado'
-                        msg_dir = "Não Orientado"
+                        f.write(texto_grafo)
+                        
+                    if config_json:
+                        with open('data/config.json', 'w') as f:
+                            f.write(texto_json.strip())
+                            
+                        # Como temos o JSON, não precisamos "adivinhar", usamos a verdade absoluta!
+                        gl.G = nx.DiGraph() if config_json['is_directed'] else nx.Graph()
+                        direcao_output = 'orientado' if config_json['is_directed'] else 'nao_orientado'
+                        msg_dir = "Orientado" if config_json['is_directed'] else "Não Orientado"
+                        
+                        peso_output = 'com_peso' if config_json['is_weighted'] else 'sem_peso'
+                        msg_peso = "Ponderado" if config_json['is_weighted'] else "Não Ponderado"
+                        
                     else:
-                        gl.G = nx.DiGraph()
-                        direcao_output = 'orientado'
-                        msg_dir = "Orientado"
+                        # Fallback: Se não tem JSON, apaga o antigo e adivinha as propriedades
+                        if os.path.exists('data/config.json'):
+                            os.remove('data/config.json')
+                            
+                        is_symmetric = True
+                        for (u, v), peso in arestas_lidas.items():
+                            if u == v:
+                                continue
+                            if (v, u) not in arestas_lidas or arestas_lidas[(v, u)] != peso:
+                                is_symmetric = False
+                                break
 
-                    if qtd_com_peso > 0:
-                        peso_output = 'com_peso'
-                        msg_peso = "Ponderado"
-                    elif qtd_sem_peso > 0:
-                        peso_output = 'sem_peso'
-                        msg_peso = "Não Ponderado"
-                    else:
-                        msg_peso = ""
-                        gl.G = nx.DiGraph()
-                        direcao_output = 'orientado'
-                        msg_dir = "Orientado"
+                        if is_symmetric and qtd_arestas_reais > 0:
+                            gl.G = nx.Graph()
+                            direcao_output = 'nao_orientado'
+                            msg_dir = "Não Orientado"
+                        else:
+                            gl.G = nx.DiGraph()
+                            direcao_output = 'orientado'
+                            msg_dir = "Orientado"
+
+                        if qtd_com_peso > 0:
+                            peso_output = 'com_peso'
+                            msg_peso = "Ponderado"
+                        elif qtd_sem_peso > 0:
+                            peso_output = 'sem_peso'
+                            msg_peso = "Não Ponderado"
+                        else:
+                            msg_peso = ""
+                            gl.G = nx.DiGraph()
+                            direcao_output = 'orientado'
+                            msg_dir = "Orientado"
 
                     msg = html.Span(f"Grafo {msg_dir} e {msg_peso} carregado!", style={'color': 'green'})
 
-                    load_graph_data(from_upload=True)
+                    # Carrega as arestas para o objeto G
+                    gl.load_graph_data(from_upload=True)
+                    
                     nodes = list(gl.G.nodes())
                     n_nodes = len(nodes)
-                    if n_nodes > 0:
+                    
+                    # --- APLICA AS POSIÇÕES NO gl.G ---
+                    if config_json and 'positions' in config_json:
+                        pos_dict = config_json['positions']
+                        for node in nodes:
+                            if node in pos_dict:
+                                gl.G.nodes[node]['position'] = pos_dict[node]
+                    elif n_nodes > 0:
+                        # Se não veio com posições (Upload Padrão), desenha em círculo
                         raio = max(150, n_nodes * 25) 
                         centro_x, centro_y = 400, 300
                         for i, node in enumerate(nodes):
@@ -398,6 +484,12 @@ def registrar_callbacks_interacoes(app):
                                 'x': centro_x + raio * math.cos(angulo),
                                 'y': centro_y + raio * math.sin(angulo)
                             }
+
+                    # --- O PULO DO GATO ---
+                    # Avisamos a função nx_to_cytoscape que TODOS os nós do upload
+                    # são "novos" na tela. Assim ela envia as coordenadas pro navegador!
+                    nos_adicionados.extend(nodes)
+                            
                     layout_output = {'name': 'preset','padding': 50, 'animate': True, 'animationDuration': 500}
                     new_source_node = None
                     graph_changed = True
@@ -789,3 +881,27 @@ def registrar_callbacks_interacoes(app):
             return dash.no_update, novo_estilo
 
         return conteudo, novo_estilo
+    
+    @app.callback(
+        Output("download-graph-data", "data"),
+        [Input("btn-download-padrao", "n_clicks"),
+         Input("btn-download-posicoes", "n_clicks")],
+        State('toggle-peso', 'value'),
+        prevent_initial_call=True,
+    )
+    def processar_download(n_padrao, n_posicoes, toggle_peso):
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            raise PreventUpdate
+            
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        is_weighted = (toggle_peso == 'com_peso')
+        
+        # Decide se inclui metadados baseado no botão clicado
+        incluir = (button_id == "btn-download-posicoes")
+        
+        # Gera o texto usando a função do graph_logic
+        conteudo = gl.gerar_conteudo_download(is_weighted=is_weighted, incluir_posicoes=incluir)
+        
+        # Retorna o dicionário que o dcc.Download entende
+        return dict(content=conteudo, filename="grafo.txt")

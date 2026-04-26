@@ -44,11 +44,21 @@ def criar_cabecalho():
                 )
             ]),
 
-            html.Div(className='image-container', style={'transform': 'translateY(7px)'}, children=[
-                html.A(id="download-link", href="/download/graph.txt", children=[
-                    html.Button(
-                        style={'backgroundImage': 'url(assets/icons/download.svg)', 'height': '40px', 'marginBottom': '12px'})
-                ])
+            html.Div(className='image-container', children=[
+                dbc.DropdownMenu(
+                    label="", 
+                    toggle_style={
+                        'backgroundImage': 'url(assets/icons/download.svg)',
+                        'backgroundSize': 'contain', 'backgroundColor': 'transparent', 'border': 'none',
+                        'width': '40px', 'height': '40px',
+                    },
+                    caret=False, direction="down", align_end=False, className="menu-templates-espacado",
+                    children=[
+                        dbc.DropdownMenuItem("Salvar Grafo Padrão", id="btn-download-padrao", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                        dbc.DropdownMenuItem("Salvar com Posições", id="btn-download-posicoes", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                    ]
+                ),
+                dcc.Download(id="download-graph-data") # Componente que processa o arquivo
             ]),
             html.Div(className='image-container', children=[
                 dcc.Upload(id='upload-data', style={'display': 'flex'}, children=[
