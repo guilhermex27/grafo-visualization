@@ -43,8 +43,11 @@ def criar_painel_lateral(tipo_dir_val, tipo_peso_val):
                 dbc.Button('Limpar Tudo', id='clear-all-button',
                            color="danger", outline=True, className='w-100 fw-bold')
             ]),
+            
+           # CARTÃO 4: Gerar Grafo Aleatório
+            dbc.Button("Gerar Grafo Aleatório", id="btn-abrir-modal-gerar", color="dark", className="w-100 shadow-sm fw-bold mb-2"),
 
-            # CARTÃO 4: Configurações
+            # CARTÃO 5: Configurações
             html.Div(className='card shadow-sm border-0 p-3', children=[
                 html.H6("Configurações",
                         className="fw-bold mb-3 text-center"),
@@ -55,7 +58,7 @@ def criar_painel_lateral(tipo_dir_val, tipo_peso_val):
                                'label': ' Sem Peso', 'value': 'sem_peso'}], value=tipo_peso_val, labelStyle={'display': 'block', 'textAlign': 'left'}, className="text-secondary")  
             ]),
 
-            # CARTÃO 5: Algoritmos
+            # CARTÃO 6: Algoritmos
             html.Div(className='card shadow-sm border-0 p-3 mb-2', children=[
                 html.H6("Algoritmos",
                         className="fw-bold mb-3 text-center"),

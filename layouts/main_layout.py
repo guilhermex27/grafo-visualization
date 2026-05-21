@@ -5,7 +5,7 @@ import dash_cytoscape as cyto
 
 import utils.graph_logic as gl
 
-from components.modals import criar_modal_peso, criar_modal_rotulo, criar_modal_ajuda
+from components.modals import criar_modal_matriz, criar_modal_peso, criar_modal_rotulo, criar_modal_ajuda, criar_modal_gerar_grafo
 from components.cabecalho import criar_cabecalho
 from components.cartoes import criar_cartao_info_grafo, criar_cartao_execucao, criar_player_flutuante
 from components.painel_lateral import criar_painel_lateral
@@ -70,10 +70,8 @@ def serve_layout():
         tbody_rows.append(html.Tr(table_row))
     
     info_matriz = html.Div(
-        style={'maxHeight': '250px', 'overflowY': 'auto'},
+        # style={'maxHeight': '600px', 'overflowY': 'auto'},
         children=[
-            html.H6(html.B("Matriz de Adjacência:"), className="fw mb-2"),
-            html.Br(),
             html.Table(className="table table-sm table-bordered table-striped mb-0", style={'fontSize': '12px'}, children=[
                 html.Thead(html.Tr(m_top), className="table-light"),
                 html.Tbody(tbody_rows)
@@ -102,6 +100,7 @@ def serve_layout():
         criar_modal_peso(),
         criar_modal_rotulo(),
         criar_modal_ajuda(),
+        criar_modal_gerar_grafo(),
 
         # LINHA 1: CABEÇALHO
         criar_cabecalho(),
@@ -132,6 +131,7 @@ def serve_layout():
                             style={'display': 'none'}),
 
                 criar_cartao_info_grafo(initial_info_children, initial_matriz_children),
+                criar_modal_matriz(initial_matriz_children),
                 criar_cartao_execucao(),
                 criar_player_flutuante(),
             ]),

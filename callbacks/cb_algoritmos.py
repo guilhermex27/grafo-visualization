@@ -4,9 +4,9 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
 import utils.graph_logic as gl
-from scripts.bfs import bfs_snapshots
-from scripts.dfs import dfs_snapshots
-from scripts.strongly_connected import scc_snapshots
+from algorithms.bfs import bfs_snapshots
+from algorithms.dfs import dfs_snapshots
+from algorithms.strongly_connected import scc_snapshots
 
 def registrar_callbacks_algoritmos(app):
 
@@ -40,7 +40,7 @@ def registrar_callbacks_algoritmos(app):
         prop_id = ctx.triggered[0]['prop_id']
 
         if prop_id == 'btn-stop-algo.n_clicks':
-            msg_stop = html.Span("Execução cancelada.", style={'color': 'blue'})
+            msg_stop = html.Span("Execução cancelada.", style={'color': 'black'})
             return None, 0, False, msg_stop, dash.no_update, dash.no_update
 
         if prop_id == 'btn-carregar-algo.n_clicks':
@@ -56,7 +56,7 @@ def registrar_callbacks_algoritmos(app):
             elif algo == 'scc':
                 snaps = scc_snapshots(gl.G, str(source))
 
-            msg = html.Span(f"Algoritmo {algo.upper()} carregado!", style={'color': 'green'})
+            msg = html.Span(f"Algoritmo {algo.upper()} carregado!", style={'color': 'black'})
             return snaps, 0, False, msg, False, "Modo: Seleção"
 
     @app.callback(
@@ -258,8 +258,8 @@ def registrar_callbacks_algoritmos(app):
             ])
         elif algo == 'scc': # NOVO: Cabeçalho para Tarjan
             thead_cols.extend([
-                html.Th("Idx", title="Index (Tempo de Descoberta)", className="text-center"),
-                html.Th("Low", title="Lowlink (Menor alcance)", className="text-center"),
+                html.Th("d", title="Index (Tempo de Descoberta)", className="text-center"),
+                html.Th("low", title="Lowlink (Menor alcance)", className="text-center"),
                 html.Th("Pilha", title="Está na Pilha?", className="text-center")
             ])
 
@@ -293,11 +293,11 @@ def registrar_callbacks_algoritmos(app):
                 idx_v = index_dict.get(v, "-")
                 low_v = lowlink_dict.get(v, "-")
                 na_pilha = "Sim" if v in on_stack else "Não"
-                cor_texto_pilha = "text-primary fw-bold" if na_pilha == "Sim" else "text-muted"
+                cor_texto_pilha = "fw-bold" if na_pilha == "Sim" else "text-danger fw-bold"
 
                 row_cols.extend([
                     html.Td(str(idx_v), className="text-center align-middle fw-bold"),
-                    html.Td(str(low_v), className="text-center align-middle text-danger fw-bold"),
+                    html.Td(str(low_v), className="text-center align-middle fw-bold"),
                     html.Td(na_pilha, className=f"text-center align-middle {cor_texto_pilha}")
                 ])
 

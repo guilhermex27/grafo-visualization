@@ -201,7 +201,7 @@ def registrar_callbacks_geral(app):
         novos_elementos = nx_to_cytoscape(gl.G)
         
         layout = {'name': 'preset', 'animate': True, 'animationDuration': 500, 'fit': True, 'padding': 40}
-        msg = html.Span(f"Modelo: '{nome_base}' carregado com sucesso!", style={'color': 'green'})
+        msg = html.Span(f"Modelo: '{nome_base}' carregado com sucesso!", style={'color': 'black'})
         
         dir_val = 'orientado' if config.get('is_directed', False) else 'nao_orientado'
         peso_val = 'com_peso' if config.get('is_weighted', True) else 'sem_peso'
@@ -215,6 +215,18 @@ def registrar_callbacks_geral(app):
         prevent_initial_call=True
     )
     def alternar_modal_ajuda(n_abrir, n_fechar, is_open):
+        ctx = dash.callback_context
+        if not ctx.triggered:
+            raise PreventUpdate
+        return not is_open
+    
+    @app.callback(
+        Output("modal-matriz", "is_open"),
+        [Input("btn-abrir-matriz", "n_clicks")], #Input("btn-fechar-matriz", "n_clicks")],
+        [State("modal-matriz", "is_open")],
+        prevent_initial_call=True
+    )
+    def alternar_modal_matriz(n_abrir, is_open):
         ctx = dash.callback_context
         if not ctx.triggered:
             raise PreventUpdate

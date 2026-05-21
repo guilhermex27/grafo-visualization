@@ -75,3 +75,58 @@ def criar_modal_ajuda():
             dbc.Button("Entendi", id="btn-fechar-ajuda", className="ms-auto", n_clicks=0, color="primary")
         ),
     ], id="modal-ajuda", is_open=False, size="lg", centered=True)
+    
+def criar_modal_matriz(info_matriz):
+    return dbc.Modal([
+        dbc.ModalHeader(
+            dbc.ModalTitle("Matriz de Adjacência", className="fw-bold"), 
+            close_button=True
+        ),
+        dbc.ModalBody([
+            html.Div(id="texto-info-grafo-matriz-modal", children=info_matriz, style={'maxHeight': '600px', 'overflowY': 'auto'})
+        ]),
+        dbc.ModalFooter(
+            dbc.Button("Baixar Matriz", id="btn-exportar", className="ms-auto", n_clicks=0, color="primary")
+        ),
+    ], id="modal-matriz", is_open=False, size="lg", centered=True)
+    
+def criar_modal_gerar_grafo():
+    return dbc.Modal([
+        dbc.ModalHeader(
+            dbc.ModalTitle("Gerar Grafo Aleatório", className="fw-bold"), 
+            close_button=True
+        ),
+        dbc.ModalBody([
+            dbc.Row([
+                dbc.Col([
+                    html.Label("Vértices:", className="fw-bold", style={'fontSize': '14px'}),
+                    dbc.Input(id="gen-vertices", type="number", min=1, max=50, value=1)
+                ], width=6),
+                dbc.Col([
+                    html.Label("Arestas:", className="fw-bold", style={'fontSize': '14px'}),
+                    dbc.Input(id="gen-arestas", type="number", min=0, max=200, value=1)
+                ], width=6),
+            ], className="mb-3"),
+            
+            dbc.Row([
+                dbc.Col([
+                    html.Label("Direção:", className="fw-bold", style={'fontSize': '14px'}),
+                    dbc.Select(id="gen-direcao", options=[
+                        {"label": "Não Orientado", "value": "nao_orientado"},
+                        {"label": "Orientado", "value": "orientado"}
+                    ], value="nao_orientado")
+                ], width=6),
+                dbc.Col([
+                    html.Label("Peso:", className="fw-bold", style={'fontSize': '14px'}),
+                    dbc.Select(id="gen-peso", options=[
+                        {"label": "Não Ponderado", "value": "sem_peso"},
+                        {"label": "Ponderado", "value": "com_peso"}
+                    ], value="sem_peso")
+                ], width=6),
+            ], className="mb-3"),
+        ]),
+        dbc.ModalFooter([
+            dbc.Button("Cancelar", id="btn-cancelar-geracao", color="secondary"),
+            dbc.Button("Gerar Grafo", id="btn-confirmar-geracao", color="success", className="fw-bold ms-2"),
+        ]),
+    ], id="modal-gerar-grafo", is_open=False, size="md", centered=True)

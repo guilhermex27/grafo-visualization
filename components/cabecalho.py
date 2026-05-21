@@ -2,7 +2,7 @@ import dash_bootstrap_components as dbc
 from dash import html, dcc
 
 def criar_cabecalho():
-    return dbc.Row(id='top-buttons-container', className="align-items-center mb-2 mt-2", style={'transition': 'opacity 0.3s'}, children=[
+    return dbc.Row(id='top-buttons-container', className="align-items-center mb-3 mt-3", style={'transition': 'opacity 0.3s'}, children=[
 
         dbc.Col(html.H2("Editor de Grafo Interativo", className="m-0 fw-bold",
                 style={'color': '#111', 'paddingLeft': '10px'}), width=8),
@@ -55,7 +55,7 @@ def criar_cabecalho():
                     caret=False, direction="down", align_end=False, className="menu-templates-espacado",
                     children=[
                         dbc.DropdownMenuItem("Salvar Grafo Padrão", id="btn-download-padrao", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
-                        dbc.DropdownMenuItem("Salvar com Posições", id="btn-download-posicoes", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
+                        dbc.DropdownMenuItem("Salvar com as Posições", id="btn-download-posicoes", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
                     ]
                 ),
                 dcc.Download(id="download-graph-data") # Componente que processa o arquivo

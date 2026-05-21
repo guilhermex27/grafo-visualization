@@ -1,3 +1,5 @@
+import math
+import random
 import os
 import networkx as nx
 import json
@@ -312,3 +314,52 @@ def gerar_conteudo_download(is_weighted=True, incluir_posicoes=False):
         conteudo_final += "\n---\n" + json.dumps(config)
         
     return conteudo_final
+
+def gerar_grafo_aleatorio(num_vertices, num_arestas, is_directed=False, is_weighted=False):
+    global G
+    
+    # 1. Recria o objeto
+    G = nx.DiGraph() if is_directed else nx.Graph()
+    
+    # 2. Cria vértices em círculo
+    vertices = [str(i) for i in range(num_vertices)]
+    raio = max(150, num_vertices * 25)
+    centro_x, centro_y = 400, 300
+    
+    for i, node in enumerate(vertices):
+        angulo = 2 * math.pi * i / num_vertices if num_vertices > 0 else 0
+        G.add_node(node, position={
+            'x': centro_x + raio * math.cos(angulo),
+            'y': centro_y + raio * math.sin(angulo)
+        })
+        
+    # 3. Lógica do Máximo de Arestas e Exceção do Laço Único (1 e 1)
+    permitir_lacos = False
+    
+    if num_vertices == 1 and num_arestas == 1:
+        permitir_lacos = True
+        max_possivel = 1
+    elif num_vertices > 1:
+        max_possivel = num_vertices * (num_vertices - 1) if is_directed else (num_vertices * (num_vertices - 1)) // 2
+    else:
+        max_possivel = 0
+
+    num_arestas = min(num_arestas, max_possivel)
+
+    # 4. Sorteia Arestas
+    arestas_criadas = 0
+    tentativas = 0 # Previne loop infinito se a randomização ficar azarada
+    
+    while arestas_criadas < num_arestas and tentativas < 2000:
+        tentativas += 1
+        u = random.choice(vertices)
+        v = random.choice(vertices)
+        
+        # Bloqueia laços se não for a exceção
+        if u == v and not permitir_lacos:
+            continue
+            
+        if not G.has_edge(u, v):
+            peso = '1'
+            G.add_edge(u, v, label=peso, real_source=u, real_target=v)
+            arestas_criadas += 1

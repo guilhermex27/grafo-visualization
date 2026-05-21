@@ -24,7 +24,8 @@ def registrar_callbacks_interacoes(app):
         Output('upload-data', 'contents'),
         Output('texto-info-grafo', 'children'),
         Output('toggle-peso', 'value'),
-        Output('texto-info-grafo-matriz', 'children'),
+        Output('texto-info-grafo-matriz-cartao', 'children'), 
+        Output('texto-info-grafo-matriz-modal', 'children'),
         Input('add-vertex-button', 'n_clicks'),
         Input('delete-selected-button', 'n_clicks'),
         Input('clear-all-button', 'n_clicks'),
@@ -38,6 +39,7 @@ def registrar_callbacks_interacoes(app):
         Input('btn-salvar-rotulo', 'n_clicks'),
         Input('shift-click-coords', 'value'),
         Input('auto-save-data', 'value'),
+        Input('btn-confirmar-geracao', 'n_clicks'),
         State('cytoscape-graph', 'selectedNodeData'),
         State('cytoscape-graph', 'selectedEdgeData'),
         State('upload-data', 'filename'),
@@ -51,12 +53,16 @@ def registrar_callbacks_interacoes(app):
         State('modal-editar-rotulo', 'is_open'),
         State('modal-input-rotulo', 'value'),
         State('vertex-edit-store', 'data'),
+        State('gen-vertices', 'value'),
+        State('gen-arestas', 'value'),
+        State('gen-direcao', 'value'),
+        State('gen-peso', 'value'),
         prevent_initial_call=True
     )
     def main_callback(
-        add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao, toggle_peso, btn_salvar_rotulo, shift_click_data, auto_save_data,
+        add_v, del_s, clear_all, upload_contents, tapped_node_data, tapped_edge_data, btn_salvar_peso, btn_hidden_center, toggle_direcao, toggle_peso, btn_salvar_rotulo, shift_click_data, auto_save_data, btn_confirmar_geracao,
         sel_nodes, sel_edges, filename, cyto_elements, source_node_id, connect_mode_on,
-        aresta_edit_store_data, modal_input_value, snaps, modal_is_open, modal_rotulo_is_open, modal_input_rotulo, vertex_edit_store_data
+        aresta_edit_store_data, modal_input_value, snaps, modal_is_open, modal_rotulo_is_open, modal_input_rotulo, vertex_edit_store_data, v_gen, e_gen, dir_gen, peso_gen
     ):
         ctx = dash.callback_context
         if not ctx.triggered:
@@ -93,7 +99,7 @@ def registrar_callbacks_interacoes(app):
 
                 gl.G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
                 nos_adicionados.append(str(new_id))
-                msg = html.Span(f"Vértice {new_id} adicionado.", style={'color': 'green'})
+                msg = html.Span(f"Vértice {new_id} adicionado.", style={'color': 'black'})
                 graph_changed = True
 
                 add_v_val = add_v if add_v else 0
@@ -119,7 +125,7 @@ def registrar_callbacks_interacoes(app):
                             new_id += 1
                         gl.G.add_node(str(new_id), position={'x': pos_x, 'y': pos_y})
                         nos_adicionados.append(str(new_id))
-                        msg = html.Span(f"Vértice {new_id} adicionado.", style={'color': 'green'})
+                        msg = html.Span(f"Vértice {new_id} adicionado.", style={'color': 'black'})
                         graph_changed = True
                     except ValueError:
                         msg = dash.no_update
@@ -131,18 +137,13 @@ def registrar_callbacks_interacoes(app):
                     data_package = json.loads(auto_save_data)
                     pos_dict = data_package.get('posicoes', {})
                     
-                    # Atualiza as posições no objeto global gl.G
                     for n_id, pos in pos_dict.items():
                         if gl.G.has_node(n_id):
                             gl.G.nodes[n_id]['position'] = pos
                     
-                    # Salva no arquivo físico (mantendo se tem peso ou não)
                     gl.save_graph_data(toggle_peso == 'com_peso')
                     
-                    # Mensagem de sucesso
-                    msg = html.Span("Posições salvas!", style={'color': 'blue'})
-                    
-                    return dash.no_update, msg, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                    return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
                 except Exception as e:
                     raise PreventUpdate
             raise PreventUpdate
@@ -153,37 +154,68 @@ def registrar_callbacks_interacoes(app):
                     target_node_id = tapped_node_data['id']
                     if not source_node_id:
                         new_source_node = target_node_id
-                        msg = html.Span(f"Vértice de origem {target_node_id} selecionado.", style={'color': '#f5a442'})
+                        msg = html.Span(f"Vértice de origem {target_node_id} selecionado.", style={'color': 'black'})
                     elif source_node_id == target_node_id:
                         if gl.G.has_edge(source_node_id, target_node_id):
-                            msg = html.Span("Laço já existe neste vértice.", style={'color': 'orange'})
+                            msg = html.Span("Laço já existe neste vértice.", style={'color': 'black'})
                         else:
                             gl.G.add_edge(source_node_id, target_node_id, label='1')
                             gl.G.edges[source_node_id, target_node_id]['real_source'] = source_node_id
                             gl.G.edges[source_node_id, target_node_id]['real_target'] = target_node_id
-                            msg = html.Span(f"Laço criado no vértice {source_node_id}.", style={'color': 'green'})
+                            msg = html.Span(f"Laço criado no vértice {source_node_id}.", style={'color': 'black'})
                             graph_changed = True
                         new_source_node = None
                     else:
                         if gl.G.has_edge(source_node_id, target_node_id):
-                            msg = html.Span("Aresta já existe.", style={'color': 'orange'})
+                            msg = html.Span("Aresta já existe.", style={'color': 'black'})
                         else:
                             gl.G.add_edge(source_node_id, target_node_id, label='1')
                             sep = "->" if gl.G.is_directed() else "-"
-                            msg = html.Span(f"Aresta {source_node_id}{sep}{target_node_id} criada.", style={'color': 'green'})
+                            msg = html.Span(f"Aresta {source_node_id}{sep}{target_node_id} criada.", style={'color': 'black'})
                             graph_changed = True
                         new_source_node = None
             else:
                 if tapped_node_data:
                     node_id = tapped_node_data['id']
-                    msg = html.Span(f"Vértice {node_id} selecionado.")
+                    msg = html.Span(f"Vértice {node_id} selecionado.", style={'color': 'black'})
 
         elif prop_id == 'cytoscape-graph.tapEdgeData':
             if not connect_mode_on and tapped_edge_data:
                 source = tapped_edge_data['source']
                 target = tapped_edge_data['target']
                 sep = "->" if gl.G.is_directed() else "-"
-                msg = html.Span(f"Aresta {source}{sep}{target} selecionada.")
+                msg = html.Span(f"Aresta {source}{sep}{target} selecionada.", style={'color': 'black'})
+                
+        elif prop_id == 'btn-confirmar-geracao.n_clicks':
+            if btn_confirmar_geracao:
+                try:
+                    v = int(v_gen)
+                    e = int(e_gen)
+                except (ValueError, TypeError):
+                    msg = html.Span("Erro: Preencha vértices e arestas com números válidos.", style={'color': 'red', 'fontWeight': 'bold'})
+                    return dash.no_update, msg, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+                if v < 1:
+                    msg = html.Span("Erro: O grafo precisa ter pelo menos 1 vértice.", style={'color': 'red', 'fontWeight': 'bold'})
+                    return dash.no_update, msg, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+                    
+                if e < 0:
+                    msg = html.Span("Erro: O número de arestas não pode ser negativo.", style={'color': 'red', 'fontWeight': 'bold'})
+                    return dash.no_update, msg, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+                is_dir = (dir_gen == 'orientado')
+                is_w = (peso_gen == 'com_peso')
+                
+                gl.gerar_grafo_aleatorio(v, e, is_directed=is_dir, is_weighted=is_w)
+                
+                direcao_output = dir_gen
+                peso_output = peso_gen
+                
+                msg = html.Span("Grafo aleatório gerado com sucesso!", style={'color': 'black'})
+                nos_adicionados.extend(list(gl.G.nodes()))
+                
+                new_source_node = None
+                graph_changed = True
 
         elif prop_id == 'delete-selected-button.n_clicks':
             if snaps:
@@ -195,7 +227,7 @@ def registrar_callbacks_interacoes(app):
                 edges_to_remove = [(e['source'], e['target']) for e in sel_edges] if sel_edges else []
                 gl.G.remove_nodes_from(nodes_to_remove)
                 gl.G.remove_edges_from(edges_to_remove)
-                msg = html.Span("Elemento(s) removido(s).", style={'color': 'green'})
+                msg = html.Span("Elemento(s) removido(s).", style={'color': 'black'})
                 graph_changed = True
                 if source_node_id in nodes_to_remove:
                     new_source_node = None
@@ -206,10 +238,10 @@ def registrar_callbacks_interacoes(app):
             elif modal_is_open or modal_rotulo_is_open:
                 msg = dash.no_update
             elif not gl.G.nodes:
-                msg = html.Span(f"O grafo já está vazio.", style={'color': 'orange'})
+                msg = html.Span(f"O grafo já está vazio.", style={'color': 'black'})
             else:
                 gl.G.clear()
-                msg = html.Span(f"Grafo limpo.", style={'color': 'green'})
+                msg = html.Span(f"Grafo limpo.", style={'color': 'black'})
                 graph_changed = True
                 new_source_node = None
             empty_msg = "" if gl.G.nodes else "Grafo vazio. Adicione um vértice para começar."
@@ -223,7 +255,7 @@ def registrar_callbacks_interacoes(app):
                     novo_peso_int = int(novo_peso_str)
                     if gl.G.has_edge(src, tgt):
                         gl.G.edges[src, tgt]['label'] = str(novo_peso_int)
-                        msg = html.Span(f"Peso atualizado para {novo_peso_int}", style={'color': 'green'})
+                        msg = html.Span(f"Peso atualizado para {novo_peso_int}", style={'color': 'black'})
                         graph_changed = True
                 except ValueError:
                     msg = html.Span("Erro: O peso deve ser um número inteiro.", style={'color': 'red'})
@@ -255,7 +287,7 @@ def registrar_callbacks_interacoes(app):
                             if data.get('real_target') == old_id:
                                 data['real_target'] = novo_id
 
-                        msg = html.Span(f"Vértice {old_id} alterado para {novo_id}.", style={'color': 'green'})
+                        msg = html.Span(f"Vértice {old_id} alterado para {novo_id}.", style={'color': 'black'})
                         graph_changed = True
                         if source_node_id == old_id:
                             new_source_node = novo_id
@@ -278,7 +310,7 @@ def registrar_callbacks_interacoes(app):
                         attrs_volta['real_target'] = u
                         novo_G.add_edge(v, u, **attrs_volta)
                 gl.G = novo_G
-                msg = html.Span("Grafo alterado para Orientado.", style={'color': 'blue'})
+                msg = html.Span("Grafo alterado para Orientado.", style={'color': 'black'})
                 graph_changed = True
             elif not is_directed and gl.G.is_directed():
                 conflito = False
@@ -302,16 +334,16 @@ def registrar_callbacks_interacoes(app):
                             data_limpa['real_target'] = v
                             novo_G.add_edge(u, v, **data_limpa)
                     gl.G = novo_G
-                    msg = html.Span("Grafo alterado para Não Orientado.", style={'color': 'blue'})
+                    msg = html.Span("Grafo alterado para Não Orientado.", style={'color': 'black'})
                     graph_changed = True
 
         elif prop_id == 'toggle-peso.value':
             for u, v, data in gl.G.edges(data=True):
                 data['label'] = '1'
             if toggle_peso == 'sem_peso':
-                msg = html.Span("Grafo alterado para Não Ponderado.", style={'color': 'blue'})
+                msg = html.Span("Grafo alterado para Não Ponderado.", style={'color': 'black'})
             else:
-                msg = html.Span("Grafo alterado para Ponderado.", style={'color': 'blue'})
+                msg = html.Span("Grafo alterado para Ponderado.", style={'color': 'black'})
             graph_changed = True
 
         elif prop_id == 'upload-data.contents':
@@ -319,7 +351,7 @@ def registrar_callbacks_interacoes(app):
                 # --- PRECAUÇÃO 1: Barrar extensões diferentes de .txt ---
                 if not filename.lower().endswith('.txt'):
                     msg = html.Span("Erro: Apenas arquivos .txt são permitidos.", style={'color': 'red', 'fontWeight': 'bold'})
-                    return dash.no_update, msg, dash.no_update, dash.no_update, dash.no_update, dash.no_update, None, dash.no_update, dash.no_update, dash.no_update
+                    return dash.no_update, msg, dash.no_update, dash.no_update, dash.no_update, dash.no_update, None, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
                 _, content_string = upload_contents.split(',')
                 decoded = base64.b64decode(content_string).decode('utf-8')
@@ -460,7 +492,7 @@ def registrar_callbacks_interacoes(app):
                             direcao_output = 'orientado'
                             msg_dir = "Orientado"
 
-                    msg = html.Span(f"Grafo {msg_dir} e {msg_peso} carregado!", style={'color': 'green'})
+                    msg = html.Span(f"Grafo {msg_dir} e {msg_peso} carregado!", style={'color': 'black'})
 
                     # Carrega as arestas para o objeto G
                     gl.load_graph_data(from_upload=True)
@@ -562,10 +594,8 @@ def registrar_callbacks_interacoes(app):
             tbody_rows.append(html.Tr(table_row))
         
         info_matriz = html.Div(
-            style={'height': '250px', 'overflowY': 'auto'},
+            # style={'maxHeight': '600px', 'overflowY': 'auto'},
             children=[
-                html.H6(html.B("Matriz de Adjacência:"), className="fw mb-2"),
-                html.Br(),
                 html.Table(className="table table-sm table-bordered table-striped mb-0", style={'fontSize': '12px'}, children=[
                     html.Thead(html.Tr(m_top), className="table-light"),
                     html.Tbody(tbody_rows)
@@ -573,7 +603,7 @@ def registrar_callbacks_interacoes(app):
             ]
         )
 
-        return new_elements, msg, layout_output, new_source_node, empty_msg, direcao_output, upload_reset, info_texto, peso_output, info_matriz
+        return new_elements, msg, layout_output, new_source_node, empty_msg, direcao_output, upload_reset, info_texto, peso_output, info_matriz, info_matriz
 
     @app.callback(
         Output('connect-mode-store', 'data'),
@@ -905,3 +935,16 @@ def registrar_callbacks_interacoes(app):
         
         # Retorna o dicionário que o dcc.Download entende
         return dict(content=conteudo, filename="grafo.txt")
+    
+    @app.callback(
+        Output("modal-gerar-grafo", "is_open"),
+        [Input("btn-abrir-modal-gerar", "n_clicks"),
+         Input("btn-cancelar-geracao", "n_clicks"),
+         Input("btn-confirmar-geracao", "n_clicks")],
+        State("modal-gerar-grafo", "is_open"),
+        prevent_initial_call=True
+    )
+    def gerenciar_modal_gerar(n_abrir, n_cancel, n_confirm, is_open):
+        if n_abrir or n_cancel or n_confirm:
+            return not is_open
+        return is_open

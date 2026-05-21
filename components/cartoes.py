@@ -6,7 +6,7 @@ def criar_cartao_info_grafo(initial_info_children, initial_matriz_children):
         html.Div(className='info', children=[
             html.Button(id='btn-info-grafo', n_clicks=0)
         ]),
-        dbc.Card(id='card-info-grafo', className='card-info shadow', style={'display': 'none', 'transition': 'transform 0.3s ease', 'transform': 'translateY(-10px)'}, children=[
+        dbc.Card(id='card-info-grafo', className='card-info shadow', style={'display': 'none', 'transition': 'transform 0.3s ease', 'transform': 'translateY(-10px)', 'maxWidth': '400px'}, children=[
             dbc.CardBody([
                 html.H6(
                     "Informações Gerais", className="fw-bold mb-3 text-dark", style={'marginTop': '0'}),
@@ -14,8 +14,14 @@ def criar_cartao_info_grafo(initial_info_children, initial_matriz_children):
                 html.Div(id='texto-info-grafo', children=initial_info_children,
                          className="fw mb-3 text-dark", style={'fontSize': '14px', 'lineHeight': '1.6', 'color': '#000000'}),
                 
-                html.Div(id='texto-info-grafo-matriz', children=initial_matriz_children, className="mt-3 pt-3 border-top text-dark", style={
-                        'fontSize': '14px', 'lineHeight': '1.6', 'color': '#080808'}),
+                html.Div(className='mt-3 pt-3 mb-3 d-flex justify-content-between border-top text-dark align-items-center', children=[
+                html.H6(html.B("Matriz de Adjacência:"), className="fw"), html.Div(className='image-container', children=[
+                    html.Button(
+                        id='btn-abrir-matriz', style={'backgroundImage': 'url(assets/icons/fullscreen.svg)', 'width': '32px', 'height': '32px', 'marginBottom': 'auto'},)
+                ])]),
+                
+                html.Div(id='texto-info-grafo-matriz-cartao', children=initial_matriz_children, className="fw mb-3 text-dark", style={
+                        'fontSize': '14px', 'lineHeight': '1.6', 'color': '#080808', 'maxHeight': '250px', 'overflowY': 'auto'}),
 
                 html.Div(id='info-detalhes-elemento', className="mt-3 pt-3 border-top text-dark", style={
                          'display': 'none', 'fontSize': '14px', 'lineHeight': '1.6', 'color': '#080808'})

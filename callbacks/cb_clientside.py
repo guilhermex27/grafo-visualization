@@ -56,3 +56,21 @@ def registrar_clientside_callbacks(app):
         Input('cytoscape-graph', 'zoom'),
         Input('cytoscape-graph', 'pan')
     )
+    
+    app.clientside_callback(
+        """
+        function(n_clicks) {
+            if (n_clicks > 0) {
+                html2canvas(document.getElementById('modal-matriz'), {ignoreElements: (el) => el.id === 'btn-exportar', useCORS: true}).then(function (canvas) {
+                    var link = document.createElement('a');
+                    link.download = 'matriz-de-adjacencia.png';
+                    link.href = canvas.toDataURL();
+                    link.click();
+                });
+            }
+            return 0;
+        }
+        """,
+        Output('btn-exportar', 'n_clicks'),
+        Input('btn-exportar', 'n_clicks')
+    )   

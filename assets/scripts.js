@@ -158,7 +158,7 @@ window.dash_clientside.grafos = {
                 }
             }, true);
             
-            // 5. AUTO-SAVE DE POSIÇÃO (COM DEBOUNCE E TIMESTAMP)
+            // 5. AUTO-SAVE DE POSIÇÃO
             let tryAttachCy = setInterval(function() {
                 let container = document.getElementById('cytoscape-graph');
                 if (container) {

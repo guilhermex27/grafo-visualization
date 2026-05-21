@@ -47,7 +47,7 @@ def scc_snapshots(G, s):
                 lowlink[v] = min(lowlink[v], index_map[w])
                 
                 snapshots.append({
-                    'acao': 'Encontrando Back Edge',
+                    'acao': 'Encontrando Arestas de retorno',
                     'v': v,
                     'w': w,
                     'index': index_map.copy(),
@@ -55,7 +55,7 @@ def scc_snapshots(G, s):
                     'stack': list(stack),
                     'on_stack': list(on_stack),
                     'sccs': list(sccs),
-                    'descricao': f"Encontrada back edge de {v} para {w}, atualizando lowlink."
+                    'descricao': f"Encontrada aresta de retorno de {v} para {w}, atualizando lowlink."
                 })
 
         if lowlink[v] == index_map[v]:
