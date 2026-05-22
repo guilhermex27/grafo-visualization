@@ -100,11 +100,11 @@ def criar_modal_gerar_grafo():
             dbc.Row([
                 dbc.Col([
                     html.Label("Vértices:", className="fw-bold", style={'fontSize': '14px'}),
-                    dbc.Input(id="gen-vertices", type="number", min=1, max=50, value=1)
+                    dbc.Input(id="gen-vertices", type="number", min=1, max=100, value=1)
                 ], width=6),
                 dbc.Col([
                     html.Label("Arestas:", className="fw-bold", style={'fontSize': '14px'}),
-                    dbc.Input(id="gen-arestas", type="number", min=0, max=200, value=1)
+                    dbc.Input(id="gen-arestas", type="number", min=0, max=9900, value=1)
                 ], width=6),
             ], className="mb-3"),
             

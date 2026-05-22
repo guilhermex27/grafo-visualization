@@ -346,20 +346,32 @@ def gerar_grafo_aleatorio(num_vertices, num_arestas, is_directed=False, is_weigh
 
     num_arestas = min(num_arestas, max_possivel)
 
-    # 4. Sorteia Arestas
-    arestas_criadas = 0
-    tentativas = 0 # Previne loop infinito se a randomização ficar azarada
-    
-    while arestas_criadas < num_arestas and tentativas < 2000:
-        tentativas += 1
-        u = random.choice(vertices)
-        v = random.choice(vertices)
+    # 4. Sorteia e adiciona as arestas
+    # Geramos todas as combinações possíveis de arestas para controle
+    todas_possiveis = []
+    for u in vertices:
+        for v in vertices:
+            if u == v and not permitir_lacos:
+                continue
+            if is_directed or int(u) < int(v): # Se não for orientado, u-v é o mesmo que v-u
+                todas_possiveis.append((u, v))
+
+    # Se o usuário pediu mais arestas do que a metade do limite, 
+    # começamos com o grafo CHEIO e saímos removendo a diferença.
+    if num_arestas > (max_possivel / 2):
+        # Adiciona todas as arestas possíveis com peso padrão
+        for u, v in todas_possiveis:
+            peso = str(random.randint(1, 10)) if is_weighted else '1'
+            G.add_edge(u, v, label=peso, real_source=u, real_target=v)
         
-        # Bloqueia laços se não for a exceção
-        if u == v and not permitir_lacos:
-            continue
-            
-        if not G.has_edge(u, v):
+        # Sorteia quais arestas remover para chegar no número exato
+        qtd_para_remover = max_possivel - num_arestas
+        arestas_para_remover = random.sample(todas_possiveis, qtd_para_remover)
+        G.remove_edges_from(arestas_para_remover)
+    
+    else:
+        # Se o grafo for esparso (poucas arestas), sorteamos adicionando (Lógica antiga otimizada)
+        arestas_escolhidas = random.sample(todas_possiveis, num_arestas)
+        for u, v in arestas_escolhidas:
             peso = '1'
             G.add_edge(u, v, label=peso, real_source=u, real_target=v)
-            arestas_criadas += 1

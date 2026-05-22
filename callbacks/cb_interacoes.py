@@ -694,38 +694,55 @@ def registrar_callbacks_interacoes(app):
                 visitados = quadro.get('index', {}).keys()
                 sccs = quadro.get('sccs', [])
                 scc_formada = quadro.get('scc_formada', None)
-                
-                # Paleta de cores para as SCCs: (Cor de Fundo, Cor da Borda)
+                pi_caminho = quadro.get('pi', {}) # Nosso novo rastro da árvore DFS
+
                 paleta = [
                     ('#166534', '#14532d'), # Verde
                     ('#6b21a8', '#581c87'), # Roxo
-                    ('#b45309', '#78350f'), # Laranja Escuro
-                    ('#be185d', '#831843'), # Rosa Escuro
-                    ('#0f766e', '#115e59'), # Teal/Ciano
-                    ('#1d4ed8', '#1e3a8a'), # Azul Escuro
+                    ('#b45309', '#78350f'), # Laranja
+                    ('#be185d', '#831843'), # Rosa
+                    ('#0f766e', '#115e59'), # Teal
+                    ('#1d4ed8', '#1e3a8a'), # Azul
                     ('#b91c1c', '#7f1d1d'), # Vermelho
                 ]
                 
-                # 1. Pinta de Azul Claro todos que já foram descobertos
+                # Camada 1: Pinta de Azul Claro todos que já foram descobertos
                 for v in visitados:
                     stylesheet.append({
                         'selector': f'node[id = "{v}"]',
-                        'style': {'background-color': '#e0f2fe', 'border-color': '#0284c7'}
+                        'style': {'background-color': '#999998', 'border-color': '#858582'} #e0f2fe #0284c7
                     })
+
+                # Camada 2: DEMARCA O CAMINHO ATIVO DA RECURSÃO (As arestas da árvore DFS)
+                # Usamos uma linha azul vibrante e pontilhada/tracejada para simular a "trilha"
+                for filho, pai in pi_caminho.items():
+                    if pai is not None:
+                        if direcao == 'orientado':
+                            seletor_caminho = f'edge[source = "{pai}"][target = "{filho}"]'
+                        else:
+                            seletor_caminho = f'edge[source = "{pai}"][target = "{filho}"], edge[source = "{filho}"][target = "{pai}"]'
+
+                        stylesheet.append({
+                            'selector': seletor_caminho,
+                            'style': {
+                                'line-color': '#0284c7',
+                                'target-arrow-color': '#0284c7',
+                                'width': 4,
+                                'line-style': 'solid', 
+                                'z-index': 50 
+                            }
+                        })
                     
-                # 2. Pinta as SCCs consolidadas E suas arestas internas
+                # Camada 3: Pinta as SCCs já finalizadas e consolidadas (Cobre o tracejado!)
                 for i, conjunto_scc in enumerate(sccs):
-                    # Pega uma cor da paleta (usa o módulo % para não dar erro se tiverem mais de 7 SCCs)
                     cor_fundo, cor_borda = paleta[i % len(paleta)]
                     
-                    # Colore os vértices dessa SCC
                     for v in conjunto_scc:
                         stylesheet.append({
                             'selector': f'node[id = "{v}"]',
                             'style': {'background-color': cor_fundo, 'border-color': cor_borda, 'color': 'white', 'text-outline-color': 'white'}
                         })
                         
-                    # Colore as arestas que ligam dois vértices DENTRO da mesma SCC
                     for u in conjunto_scc:
                         for v in conjunto_scc:
                             if direcao == 'orientado':
@@ -739,11 +756,12 @@ def registrar_callbacks_interacoes(app):
                                     'line-color': cor_fundo, 
                                     'target-arrow-color': cor_fundo, 
                                     'width': 4,
-                                    'z-index': 100 # Joga a aresta colorida para cima
+                                    'line-style': 'solid',
+                                    'z-index': 100 
                                 }
                             })
                             
-                # 3. Dá um destaque visual (Amarelo Piscante) na ação exata em que a SCC acabou de ser descoberta
+                # Camada 4: Destaque Amarelo Piscante na formação da SCC
                 if scc_formada and quadro.get('acao') == 'Formando SCC':
                     for v in scc_formada:
                         stylesheet.append({

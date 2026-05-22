@@ -258,7 +258,7 @@ def registrar_callbacks_algoritmos(app):
             ])
         elif algo == 'scc': # NOVO: Cabeçalho para Tarjan
             thead_cols.extend([
-                html.Th("d", title="Index (Tempo de Descoberta)", className="text-center"),
+                html.Th("d", title="Descoberta", className="text-center"),
                 html.Th("low", title="Lowlink (Menor alcance)", className="text-center"),
                 html.Th("Pilha", title="Está na Pilha?", className="text-center")
             ])
