@@ -516,7 +516,7 @@ def registrar_callbacks_interacoes(app):
                 else:
                     msg = html.Span(f"Falha ao carregar: {msg_erro}", style={'color': 'red'})
 
-                upload_reset = None
+                upload_reset = dash.no_update
 
         elif prop_id == 'btn-hidden-center.n_clicks':
             if btn_hidden_center:

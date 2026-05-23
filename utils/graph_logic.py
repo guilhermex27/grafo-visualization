@@ -175,6 +175,14 @@ def load_graph_data(from_upload=False):
     global G
     config = {'is_directed': False, 'is_weighted': True, 'positions': {}}
 
+    os.makedirs('data', exist_ok=True)
+
+    if not os.path.exists(GRAPH_FILE_PATH) or os.path.getsize(GRAPH_FILE_PATH) == 0:
+        with open(GRAPH_FILE_PATH, 'w') as f:
+            f.write("0 0\n---\n")
+        with open('data/config.json', 'w') as f:
+            json.dump(config, f)
+
     if os.path.exists('data/config.json'):
         try:
             with open('data/config.json', 'r') as f:
@@ -189,7 +197,19 @@ def load_graph_data(from_upload=False):
         return config
 
     with open(GRAPH_FILE_PATH, 'r') as f:
-        lines = [line.strip() for line in f.read().splitlines() if line.strip()]
+        content = f.read()
+
+    partes = content.split('\n---\n')
+    texto_grafo = partes[0]
+
+    if len(partes) > 1 and partes[1].strip():
+        try:
+            config_json = json.loads(partes[1].strip())
+            config.update(config_json)
+        except Exception:
+            pass
+
+    lines = [line.strip() for line in texto_grafo.splitlines() if line.strip()]
 
     if not lines:
         return config
