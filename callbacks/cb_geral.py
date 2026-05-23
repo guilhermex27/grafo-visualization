@@ -222,7 +222,7 @@ def registrar_callbacks_geral(app):
     
     @app.callback(
         Output("modal-matriz", "is_open"),
-        [Input("btn-abrir-matriz", "n_clicks")], #Input("btn-fechar-matriz", "n_clicks")],
+        [Input("btn-abrir-matriz", "n_clicks")],
         [State("modal-matriz", "is_open")],
         prevent_initial_call=True
     )

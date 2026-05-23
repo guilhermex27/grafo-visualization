@@ -8,7 +8,7 @@ def scc_snapshots(G, s):
     sccs = []
     snapshots = []
     
-    def strongconnect(v, pai=None): # <-- Adicione pai aqui
+    def strongconnect(v, pai=None):
         nonlocal index
         index_map[v] = index
         lowlink[v] = index
@@ -16,7 +16,6 @@ def scc_snapshots(G, s):
         stack.append(v)
         on_stack.append(v)
         
-        # Guardamos quem é o pai de quem na árvore de busca atual
         if pai:
             if 'pi' not in snapshots[-1] if snapshots else True:
                 pi_atual = snapshots[-1].get('pi', {}).copy() if snapshots else {}
@@ -34,13 +33,13 @@ def scc_snapshots(G, s):
             'stack': list(stack),
             'on_stack': list(on_stack),
             'sccs': list(sccs),
-            'pi': pi_atual, # <-- Adicionado
+            'pi': pi_atual, 
             'descricao': f"Visitando o vértice {v}."
         })
 
         for w in G.adj[v]:
             if w not in index_map:
-                strongconnect(w, pai=v) # <-- Passa o v como pai
+                strongconnect(w, pai=v)
                 lowlink[v] = min(lowlink[v], lowlink[w])
                 
                 snapshots.append({
@@ -49,7 +48,7 @@ def scc_snapshots(G, s):
                     'index': index_map.copy(), 'lowlink': lowlink.copy(),
                     'stack': list(stack), 'on_stack': list(on_stack),
                     'sccs': list(sccs),
-                    'pi': snapshots[-1].get('pi', {}).copy(), # <-- Mantém o rastro
+                    'pi': snapshots[-1].get('pi', {}).copy(),
                     'descricao': f"Atualizando lowlink de {v} após visitar {w}."
                 })
             elif w in on_stack:
@@ -61,7 +60,7 @@ def scc_snapshots(G, s):
                     'index': index_map.copy(), 'lowlink': lowlink.copy(),
                     'stack': list(stack), 'on_stack': list(on_stack),
                     'sccs': list(sccs),
-                    'pi': snapshots[-1].get('pi', {}).copy(), # <-- Mantém o rastro
+                    'pi': snapshots[-1].get('pi', {}).copy(),
                     'descricao': f"Encontrada aresta de retorno de {v} para {w}, atualizando lowlink."
                 })
 
@@ -75,7 +74,6 @@ def scc_snapshots(G, s):
                     break
             sccs.append(scc)
             
-            # Quando a SCC limpa da pilha, removemos os filhos dela do caminho ativo pi
             pi_limpo = snapshots[-1].get('pi', {}).copy()
             for nodo_scc in scc:
                 if nodo_scc in pi_limpo:
@@ -87,7 +85,7 @@ def scc_snapshots(G, s):
                 'index': index_map.copy(), 'lowlink': lowlink.copy(),
                 'stack': list(stack), 'on_stack': list(on_stack),
                 'sccs': list(sccs),
-                'pi': pi_limpo, # <-- Caminho limpo dos nós que saíram da pilha
+                'pi': pi_limpo,
                 'descricao': f"Formada a componente fortemente conectada: {scc}."
             })
 

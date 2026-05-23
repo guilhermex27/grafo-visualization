@@ -58,7 +58,7 @@ def criar_cabecalho():
                         dbc.DropdownMenuItem("Salvar com as Posições", id="btn-download-posicoes", style={'width': '240px', 'padding': '10px 15px', 'fontSize': '15px', 'fontWeight': '600'}),
                     ]
                 ),
-                dcc.Download(id="download-graph-data") # Componente que processa o arquivo
+                dcc.Download(id="download-graph-data")
             ]),
             html.Div(className='image-container', children=[
                 dcc.Upload(id='upload-data', style={'display': 'flex'}, children=[

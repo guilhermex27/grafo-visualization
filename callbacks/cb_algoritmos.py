@@ -189,7 +189,6 @@ def registrar_callbacks_algoritmos(app):
             # --- 1. LÓGICA DA MAIOR SCC ---
             sccs_atuais = quadro.get('sccs', [])
             if sccs_atuais:
-                # Pega a lista com mais elementos dentro de sccs_atuais
                 maior_scc = max(sccs_atuais, key=len)
                 str_maior = ", ".join([str(v) for v in maior_scc])
                 texto_maior_scc = f"{{ {str_maior} }}"
@@ -216,14 +215,11 @@ def registrar_callbacks_algoritmos(app):
                     html.Span(texto_pilha, className="fw-bold") 
                 ]))
 
-            # Adiciona as duas informações lado a lado no cartão
             if infos_scc:
                 elementos_globais.append(html.Div(
                     infos_scc, className="mb-2 text-center", style={'fontSize': '14px'}
                 ))
         
-        # 2. CONSTRUÇÃO DA TABELA DE VÉRTICES
-        # (Lemos todos os dicionários possíveis, usando get para evitar erros se a chave não existir)
         cores_dict = quadro.get('c', {})
         d_dict = quadro.get('d', {})
         pi_dict = quadro.get('pi', {})
@@ -234,7 +230,6 @@ def registrar_callbacks_algoritmos(app):
         lowlink_dict = quadro.get('lowlink', {})
         on_stack = quadro.get('on_stack', set())
 
-        # Pega a união de todos os vértices que já foram descobertos em qualquer algoritmo
         todos_vertices_vistos = set(cores_dict.keys()) | set(index_dict.keys())
         vertices = sorted(list(todos_vertices_vistos), key=lambda x: int(x) if str(x).isdigit() else x)
 
@@ -242,7 +237,6 @@ def registrar_callbacks_algoritmos(app):
             html.Th("V", title="Vértice", className="text-center")
         ]
         
-        # Ajusta as colunas dependendo do algoritmo
         if algo == 'bfs':
             thead_cols.extend([
                 html.Th("Cor", className="text-center"),
@@ -256,7 +250,7 @@ def registrar_callbacks_algoritmos(app):
                 html.Th("f", title="Finalização", className="text-center"),
                 html.Th("π", title="Predecessor", className="text-center")
             ])
-        elif algo == 'scc': # NOVO: Cabeçalho para Tarjan
+        elif algo == 'scc':
             thead_cols.extend([
                 html.Th("d", title="Descoberta", className="text-center"),
                 html.Th("low", title="Lowlink (Menor alcance)", className="text-center"),
@@ -289,7 +283,7 @@ def registrar_callbacks_algoritmos(app):
                     html.Td(str(f_v), className="text-center align-middle text-danger fw-bold"),
                     html.Td(str(pi_v), className="text-center align-middle")
                 ])
-            elif algo == 'scc': # NOVO: Linhas da tabela do Tarjan
+            elif algo == 'scc':
                 idx_v = index_dict.get(v, "-")
                 low_v = lowlink_dict.get(v, "-")
                 na_pilha = "Sim" if v in on_stack else "Não"

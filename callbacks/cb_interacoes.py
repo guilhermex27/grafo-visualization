@@ -133,7 +133,6 @@ def registrar_callbacks_interacoes(app):
         elif prop_id == 'auto-save-data.value':
             if auto_save_data:
                 try:
-                    # Decodifica o JSON vindo do JS
                     data_package = json.loads(auto_save_data)
                     pos_dict = data_package.get('posicoes', {})
                     
@@ -424,7 +423,6 @@ def registrar_callbacks_interacoes(app):
                     try:
                         config_json = json.loads(texto_json.strip())
                         
-                        # Verifica se as chaves existem e são do tipo certo
                         if not isinstance(config_json.get('is_directed'), bool):
                             raise ValueError("'is_directed' deve ser booleano.")
                         if not isinstance(config_json.get('is_weighted'), bool):
@@ -432,7 +430,6 @@ def registrar_callbacks_interacoes(app):
                         if 'positions' not in config_json or not isinstance(config_json['positions'], dict):
                             raise ValueError("Falta o dicionário de 'positions'.")
                             
-                        # Verifica se a quantidade de posições bate com o cabeçalho do grafo
                         if len(config_json['positions']) != v_header:
                             raise ValueError(f"Quantidade de posições ({len(config_json['positions'])}) não bate com os {v_header} vértices declarados.")
                             
@@ -442,7 +439,6 @@ def registrar_callbacks_interacoes(app):
                         arquivo_valido, msg_erro = False, f"Erro nas configurações: {str(e)}"
 
                 if arquivo_valido:
-                    # Salva os arquivos limpos e separados para o backend ler
                     with open(gl.GRAPH_FILE_PATH, 'w') as f:
                         f.write(texto_grafo)
                         
@@ -450,7 +446,6 @@ def registrar_callbacks_interacoes(app):
                         with open('data/config.json', 'w') as f:
                             f.write(texto_json.strip())
                             
-                        # Como temos o JSON, não precisamos "adivinhar", usamos a verdade absoluta!
                         gl.G = nx.DiGraph() if config_json['is_directed'] else nx.Graph()
                         direcao_output = 'orientado' if config_json['is_directed'] else 'nao_orientado'
                         msg_dir = "Orientado" if config_json['is_directed'] else "Não Orientado"
@@ -459,7 +454,6 @@ def registrar_callbacks_interacoes(app):
                         msg_peso = "Ponderado" if config_json['is_weighted'] else "Não Ponderado"
                         
                     else:
-                        # Fallback: Se não tem JSON, apaga o antigo e adivinha as propriedades
                         if os.path.exists('data/config.json'):
                             os.remove('data/config.json')
                             
@@ -494,20 +488,17 @@ def registrar_callbacks_interacoes(app):
 
                     msg = html.Span(f"Grafo {msg_dir} e {msg_peso} carregado!", style={'color': 'black'})
 
-                    # Carrega as arestas para o objeto G
                     gl.load_graph_data(from_upload=True)
                     
                     nodes = list(gl.G.nodes())
                     n_nodes = len(nodes)
-                    
-                    # --- APLICA AS POSIÇÕES NO gl.G ---
+          
                     if config_json and 'positions' in config_json:
                         pos_dict = config_json['positions']
                         for node in nodes:
                             if node in pos_dict:
                                 gl.G.nodes[node]['position'] = pos_dict[node]
                     elif n_nodes > 0:
-                        # Se não veio com posições (Upload Padrão), desenha em círculo
                         raio = max(150, n_nodes * 25) 
                         centro_x, centro_y = 400, 300
                         for i, node in enumerate(nodes):
@@ -517,9 +508,6 @@ def registrar_callbacks_interacoes(app):
                                 'y': centro_y + raio * math.sin(angulo)
                             }
 
-                    # --- O PULO DO GATO ---
-                    # Avisamos a função nx_to_cytoscape que TODOS os nós do upload
-                    # são "novos" na tela. Assim ela envia as coordenadas pro navegador!
                     nos_adicionados.extend(nodes)
                             
                     layout_output = {'name': 'preset','padding': 50, 'animate': True, 'animationDuration': 500}
@@ -594,7 +582,6 @@ def registrar_callbacks_interacoes(app):
             tbody_rows.append(html.Tr(table_row))
         
         info_matriz = html.Div(
-            # style={'maxHeight': '600px', 'overflowY': 'auto'},
             children=[
                 html.Table(className="table table-sm table-bordered table-striped mb-0", style={'fontSize': '12px'}, children=[
                     html.Thead(html.Tr(m_top), className="table-light"),
@@ -694,7 +681,7 @@ def registrar_callbacks_interacoes(app):
                 visitados = quadro.get('index', {}).keys()
                 sccs = quadro.get('sccs', [])
                 scc_formada = quadro.get('scc_formada', None)
-                pi_caminho = quadro.get('pi', {}) # Nosso novo rastro da árvore DFS
+                pi_caminho = quadro.get('pi', {})
 
                 paleta = [
                     ('#166534', '#14532d'), # Verde
@@ -705,16 +692,13 @@ def registrar_callbacks_interacoes(app):
                     ('#1d4ed8', '#1e3a8a'), # Azul
                     ('#b91c1c', '#7f1d1d'), # Vermelho
                 ]
-                
-                # Camada 1: Pinta de Azul Claro todos que já foram descobertos
+
                 for v in visitados:
                     stylesheet.append({
                         'selector': f'node[id = "{v}"]',
-                        'style': {'background-color': '#999998', 'border-color': '#858582'} #e0f2fe #0284c7
+                        'style': {'background-color': '#999998', 'border-color': '#858582'}
                     })
 
-                # Camada 2: DEMARCA O CAMINHO ATIVO DA RECURSÃO (As arestas da árvore DFS)
-                # Usamos uma linha azul vibrante e pontilhada/tracejada para simular a "trilha"
                 for filho, pai in pi_caminho.items():
                     if pai is not None:
                         if direcao == 'orientado':
@@ -733,7 +717,6 @@ def registrar_callbacks_interacoes(app):
                             }
                         })
                     
-                # Camada 3: Pinta as SCCs já finalizadas e consolidadas (Cobre o tracejado!)
                 for i, conjunto_scc in enumerate(sccs):
                     cor_fundo, cor_borda = paleta[i % len(paleta)]
                     
@@ -761,7 +744,6 @@ def registrar_callbacks_interacoes(app):
                                 }
                             })
                             
-                # Camada 4: Destaque Amarelo Piscante na formação da SCC
                 if scc_formada and quadro.get('acao') == 'Formando SCC':
                     for v in scc_formada:
                         stylesheet.append({
@@ -945,13 +927,10 @@ def registrar_callbacks_interacoes(app):
         button_id = ctx.triggered[0]['prop_id'].split('.')[0]
         is_weighted = (toggle_peso == 'com_peso')
         
-        # Decide se inclui metadados baseado no botão clicado
         incluir = (button_id == "btn-download-posicoes")
         
-        # Gera o texto usando a função do graph_logic
         conteudo = gl.gerar_conteudo_download(is_weighted=is_weighted, incluir_posicoes=incluir)
         
-        # Retorna o dicionário que o dcc.Download entende
         return dict(content=conteudo, filename="grafo.txt")
     
     @app.callback(

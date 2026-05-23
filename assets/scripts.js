@@ -173,7 +173,6 @@ window.dash_clientside.grafos = {
                         }
                     }
                     if (cy) {
-                        // Limpa ouvidores antigos para não duplicar o salvamento
                         cy.off('dragfree', 'node');
 
                         let dragTimeout = null;
@@ -188,7 +187,6 @@ window.dash_clientside.grafos = {
 
                                 let inputAutoSave = document.getElementById('auto-save-data');
                                 if(inputAutoSave) {
-                                    // Adicionamos um timestamp para garantir que o 'value' mude SEMPRE
                                     let dataParaEnvio = {
                                         tempo: new Date().getTime(),
                                         posicoes: posicoes

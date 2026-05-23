@@ -65,7 +65,6 @@ BASE_STYLESHEET = [
 ]
 
 def atualizar_posicoes_no_grafo(cyto_elements):
-    """Sincroniza as posições visuais da tela com o objeto NetworkX no Python."""
     if not cyto_elements:
         return
     for element in cyto_elements:
@@ -75,7 +74,6 @@ def atualizar_posicoes_no_grafo(cyto_elements):
                 gl.G.nodes[node_id]['position'] = element['position']
 
 def nx_to_cytoscape(graph_obj, manter_posicoes=False, novos_nos=None):
-    """Converte o grafo para Cytoscape, tratando a persistência de posição."""
     if novos_nos is None:
         novos_nos = []
         
@@ -85,8 +83,6 @@ def nx_to_cytoscape(graph_obj, manter_posicoes=False, novos_nos=None):
         cy_node = {'data': {'id': str(node), 'label': str(label_atual)}}
         
         if 'position' in attrs:
-            # Só enviamos 'position' se for um carregamento total (F5) ou um nó novo.
-            # Se for uma atualização de callback, omitimos para o Cytoscape manter o que foi arrastado.
             if not manter_posicoes or str(node) in novos_nos:
                 cy_node['position'] = attrs['position']
                 
@@ -281,7 +277,6 @@ def obter_matriz_adjacencia(graph_obj):
     return indices, data_rows
 
 def gerar_conteudo_download(is_weighted=True, incluir_posicoes=False):
-    """Gera o texto final do arquivo baseado na escolha do usuário."""
     linhas_arestas = []
     for source, target, data in gl.G.edges(data=True):
         s = data.get('real_source', source)
@@ -299,12 +294,10 @@ def gerar_conteudo_download(is_weighted=True, incluir_posicoes=False):
             else:
                 linhas_arestas.append(f"{t} {s}")
 
-    # Cabeçalho padrão: <n_vertices> <n_arestas>
     cabecalho = f"{gl.G.number_of_nodes()} {len(linhas_arestas)}\n"
     corpo = "\n".join(linhas_arestas)
     conteudo_final = cabecalho + corpo
 
-    # Se o usuário confirmou as posições, anexamos o JSON após o separador
     if incluir_posicoes:
         config = {
             'is_directed': gl.G.is_directed(),
@@ -317,11 +310,9 @@ def gerar_conteudo_download(is_weighted=True, incluir_posicoes=False):
 
 def gerar_grafo_aleatorio(num_vertices, num_arestas, is_directed=False, is_weighted=False):
     global G
-    
-    # 1. Recria o objeto
+
     G = nx.DiGraph() if is_directed else nx.Graph()
-    
-    # 2. Cria vértices em círculo
+
     vertices = [str(i) for i in range(num_vertices)]
     raio = max(150, num_vertices * 25)
     centro_x, centro_y = 400, 300
@@ -333,7 +324,6 @@ def gerar_grafo_aleatorio(num_vertices, num_arestas, is_directed=False, is_weigh
             'y': centro_y + raio * math.sin(angulo)
         })
         
-    # 3. Lógica do Máximo de Arestas e Exceção do Laço Único (1 e 1)
     permitir_lacos = False
     
     if num_vertices == 1 and num_arestas == 1:
@@ -346,32 +336,25 @@ def gerar_grafo_aleatorio(num_vertices, num_arestas, is_directed=False, is_weigh
 
     num_arestas = min(num_arestas, max_possivel)
 
-    # 4. Sorteia e adiciona as arestas
-    # Geramos todas as combinações possíveis de arestas para controle
     todas_possiveis = []
     for u in vertices:
         for v in vertices:
             if u == v and not permitir_lacos:
                 continue
-            if is_directed or int(u) < int(v): # Se não for orientado, u-v é o mesmo que v-u
+            if is_directed or int(u) < int(v):
                 todas_possiveis.append((u, v))
 
-    # Se o usuário pediu mais arestas do que a metade do limite, 
-    # começamos com o grafo CHEIO e saímos removendo a diferença.
     if num_arestas > (max_possivel / 2):
-        # Adiciona todas as arestas possíveis com peso padrão
         for u, v in todas_possiveis:
-            peso = str(random.randint(1, 10)) if is_weighted else '1'
+            peso = str(random.randint(1, 12)) if is_weighted else '1'
             G.add_edge(u, v, label=peso, real_source=u, real_target=v)
         
-        # Sorteia quais arestas remover para chegar no número exato
         qtd_para_remover = max_possivel - num_arestas
         arestas_para_remover = random.sample(todas_possiveis, qtd_para_remover)
         G.remove_edges_from(arestas_para_remover)
     
     else:
-        # Se o grafo for esparso (poucas arestas), sorteamos adicionando (Lógica antiga otimizada)
         arestas_escolhidas = random.sample(todas_possiveis, num_arestas)
         for u, v in arestas_escolhidas:
-            peso = '1'
+            peso = str(random.randint(1, 12)) if is_weighted else '1'
             G.add_edge(u, v, label=peso, real_source=u, real_target=v)

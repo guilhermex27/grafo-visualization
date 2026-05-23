@@ -70,7 +70,6 @@ def serve_layout():
         tbody_rows.append(html.Tr(table_row))
     
     info_matriz = html.Div(
-        # style={'maxHeight': '600px', 'overflowY': 'auto'},
         children=[
             html.Table(className="table table-sm table-bordered table-striped mb-0", style={'fontSize': '12px'}, children=[
                 html.Thead(html.Tr(m_top), className="table-light"),
