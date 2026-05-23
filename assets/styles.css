@@ -70,7 +70,7 @@ button:disabled {
 
 .info-container {
     position: absolute;
-    top: 10px;
+    top: 5px;
     left: 10px;
     z-index: 50;
     display: flex;
@@ -103,7 +103,7 @@ button:disabled {
 }
 
 .card-info {
-    margin-top: 10px;
+    margin-top: 8px;
     background-color: rgba(255, 255, 255, 0.95) !important;
     border-radius: 8px !important;
     min-width: 220px;

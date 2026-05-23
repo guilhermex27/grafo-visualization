@@ -159,34 +159,48 @@ window.dash_clientside.grafos = {
             }, true);
             
             // 5. AUTO-SAVE DE POSIÇÃO
-            if (!window.dragListenerAdded) {
-                let attempts = 0;
-                let tryAttachCy = setInterval(function() {
-                    let container = document.getElementById('cytoscape-graph');
-                    if (container) {
-                        let cy = null;
-                        let reactKey = Object.keys(container).find(k => k.startsWith('__reactFiber$'));
-                        if (reactKey) {
-                            let fiber = container[reactKey];
-                            while (fiber) {
-                                if (fiber.stateNode && fiber.stateNode._cy) { cy = fiber.stateNode._cy; break; }
-                                if (fiber.stateNode && fiber.stateNode.cy) { cy = fiber.stateNode.cy; break; }
-                                fiber = fiber.return;
-                            }
-                        }
-                        if (cy) {
-                            cy.on('dragfree', 'node', function(evt) {
-                                let btn = document.getElementById('btn-auto-save-pos');
-                                if(btn) btn.click();
-                            });
-                            window.dragListenerAdded = true;
-                            clearInterval(tryAttachCy);
+            let tryAttachCy = setInterval(function() {
+                let container = document.getElementById('cytoscape-graph');
+                if (container) {
+                    let cy = null;
+                    let reactKey = Object.keys(container).find(k => k.startsWith('__reactFiber$'));
+                    if (reactKey) {
+                        let fiber = container[reactKey];
+                        while (fiber) {
+                            if (fiber.stateNode && fiber.stateNode._cy) { cy = fiber.stateNode._cy; break; }
+                            if (fiber.stateNode && fiber.stateNode.cy) { cy = fiber.stateNode.cy; break; }
+                            fiber = fiber.return;
                         }
                     }
-                    attempts++;
-                    if(attempts > 20) clearInterval(tryAttachCy);
-                }, 300);
-            }
+                    if (cy) {
+                        cy.off('dragfree', 'node');
+
+                        let dragTimeout = null;
+                        cy.on('dragfree', 'node', function(evt) {
+                            if (dragTimeout) clearTimeout(dragTimeout);
+                            
+                            dragTimeout = setTimeout(function() {
+                                let posicoes = {};
+                                cy.nodes().forEach(n => {
+                                    posicoes[n.id()] = n.position();
+                                });
+
+                                let inputAutoSave = document.getElementById('auto-save-data');
+                                if(inputAutoSave) {
+                                    let dataParaEnvio = {
+                                        tempo: new Date().getTime(),
+                                        posicoes: posicoes
+                                    };
+                                    
+                                    let setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                                    setter.call(inputAutoSave, JSON.stringify(dataParaEnvio));
+                                    inputAutoSave.dispatchEvent(new Event('input', { bubbles: true }));
+                                }
+                            }, 250); 
+                        });
+                    }
+                }
+            }, 1000);
             
             window.keydownListenerAdded = true;
         }
