@@ -9,8 +9,8 @@ def criar_painel_lateral(tipo_dir_val, tipo_peso_val):
         'transform': 'translateX(100%)'
     }, children=[
 
-        html.Div(className='btn-paineis', style={'position': 'absolute', 'left': '-31px', 'top': '50%', 'transform': 'translateY(-50%)'}, children=[
-            html.Button('◀', id='toggle-painel-btn', n_clicks=0)
+        html.Div(className='btn-paineis', style={'position': 'absolute', 'left': '-31px', 'top': '50%', 'transform': 'translateY(-50%)', 'zIndex': 101, 'width': '31px'}, children=[
+            html.Button('◀', id='toggle-painel-btn', style={'width': '31px'} ,n_clicks=0)
         ]),
 
         # CONTEÚDO DO PAINEL

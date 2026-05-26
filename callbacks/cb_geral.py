@@ -3,7 +3,7 @@ import time
 import math
 import shutil
 import dash
-from dash import html
+from dash import html, Patch
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 
@@ -116,17 +116,15 @@ def registrar_callbacks_geral(app):
         prevent_initial_call=True
     )
     def alternar_painel_inteiro(n_clicks):
-        estilo_painel = {
-            'position': 'absolute', 'right': '0', 'top': '0',
-            'width': '300px', 'height': '88vh', 'padding': '0',
-            'transition': 'transform 0.3s ease', 'zIndex': 100
-        }
+        estilo_painel = Patch()
 
         if n_clicks % 2 == 0:
             estilo_painel['transform'] = 'translateX(100%)'
+            estilo_painel['transition'] = 'transform 0.3s ease'
             return 12, estilo_painel, '◀'
         else:
             estilo_painel['transform'] = 'translateX(0%)'
+            estilo_painel['transition'] = 'transform 0.3s ease'
             return 12, estilo_painel, '▶'
 
     @app.callback(

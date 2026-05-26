@@ -85,9 +85,9 @@ def criar_modal_matriz(info_matriz):
         dbc.ModalBody([
             html.Div(id="texto-info-grafo-matriz-modal", children=info_matriz, style={'maxHeight': '600px', 'overflowY': 'auto'})
         ]),
-        dbc.ModalFooter(
-            dbc.Button("Baixar Matriz", id="btn-exportar", className="ms-auto", n_clicks=0, color="primary")
-        ),
+        # dbc.ModalFooter(
+        #     dbc.Button("Baixar Matriz", id="btn-exportar", className="ms-auto", n_clicks=0, color="primary")
+        # ),
     ], id="modal-matriz", is_open=False, size="lg", centered=True)
     
 def criar_modal_gerar_grafo():
