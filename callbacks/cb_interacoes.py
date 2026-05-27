@@ -5,6 +5,7 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import networkx as nx
 import base64
+import random
 import os
 import json
 import math
@@ -482,13 +483,16 @@ def registrar_callbacks_interacoes(app):
                             msg_peso = "Não Ponderado"
                         else:
                             msg_peso = ""
-                            gl.G = nx.DiGraph()
-                            direcao_output = 'orientado'
-                            msg_dir = "Orientado"
+                            if not (is_symmetric and qtd_arestas_reais > 0):
+                                gl.G = nx.DiGraph()
+                                direcao_output = 'orientado'
+                                msg_dir = "Orientado"
+
+                    gl.G.add_nodes_from(vertices_unicos)
+                    for (u, v), peso in arestas_lidas.items():
+                        gl.G.add_edge(u, v, label=peso, real_source=u, real_target=v)
 
                     msg = html.Span(f"Grafo {msg_dir} e {msg_peso} carregado!", style={'color': 'black'})
-
-                    gl.load_graph_data(from_upload=True)
                     
                     nodes = list(gl.G.nodes())
                     n_nodes = len(nodes)
@@ -498,6 +502,11 @@ def registrar_callbacks_interacoes(app):
                         for node in nodes:
                             if node in pos_dict:
                                 gl.G.nodes[node]['position'] = pos_dict[node]
+                                
+                        layout_output = {
+                            'name': 'preset', 'padding': 50, 'animate': True, 'animationDuration': 500, 
+                            'refresh_trigger': f"pos_json_{random.randint(0, 99999)}"
+                        }
                     elif n_nodes > 0:
                         raio = max(150, n_nodes * 25) 
                         centro_x, centro_y = 400, 300
@@ -507,12 +516,18 @@ def registrar_callbacks_interacoes(app):
                                 'x': centro_x + raio * math.cos(angulo),
                                 'y': centro_y + raio * math.sin(angulo)
                             }
+                            
+                        layout_output = {
+                            'name': 'preset', 'padding': 50, 'animate': True, 'animationDuration': 500, 
+                            'refresh_trigger': f"pos_circ_{random.randint(0, 99999)}"
+                        }
+                    else:
+                        layout_output = {'name': 'preset'}
 
                     nos_adicionados.extend(nodes)
-                            
-                    layout_output = {'name': 'preset','padding': 50, 'animate': True, 'animationDuration': 500}
                     new_source_node = None
                     graph_changed = True
+                    upload_reset = None
                 else:
                     msg = html.Span(f"Falha ao carregar: {msg_erro}", style={'color': 'red'})
 
@@ -541,6 +556,10 @@ def registrar_callbacks_interacoes(app):
         else:
             new_elements = dash.no_update
             empty_msg = dash.no_update
+            if not gl.G.nodes:
+                layout_output = {'name': 'preset'}
+            elif layout_output == dash.no_update:
+                layout_output = {'name': 'preset', 'animate': True, 'fit': False, 'animationDuration': 100}
 
         tipo_peso_final = peso_output if peso_output != dash.no_update else toggle_peso
         tipo_dir = "Orientado" if gl.G.is_directed() else "Não Orientado"
